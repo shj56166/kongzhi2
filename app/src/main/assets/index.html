@@ -1,0 +1,1216 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>蓝牙多功能控制器</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+    <script type="module" src="https://esm.run/@material/web/all.js"></script>
+    <style>
+        :root {
+            --padding-l: 24px; --padding-m: 16px; --padding-s: 8px; --radius-l: 28px; --radius-m: 16px; --gap-m: 16px; --gap-s: 8px; --color-accent: #007BFF; --color-on-accent: #FFFFFF; --color-accent-container: #E6F2FF; --color-on-accent-container: #0056B3; --color-surface-container-highest: #FFFFFF; --color-surface-container-low: #F7F8FA; --color-on-surface: #1a1c1e; --color-on-surface-variant: #5a6470; --color-outline: #dce1e7; --color-background: #FDFDFD; --color-success: #27ae60; --color-error: #c0392b; --color-inactive: #bdc3c7; --color-warning: #f39c12; --header-height: 72px; --nav-height: 64px; --anim-duration: 0.3s; --anim-curve: cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { height: 100%; background-color: var(--color-background); color: var(--color-on-surface); font-family: 'Roboto', sans-serif; overflow: hidden; }
+        .app-container { height: 100%; position: relative; }
+        .app-header { position: fixed; top: 0; left: 0; right: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 var(--padding-m); height: calc(var(--header-height) + env(safe-area-inset-top, 0px)); padding-top: env(safe-area-inset-top, 0px); background-color: var(--color-surface-container-highest); border-bottom: 1px solid var(--color-outline); z-index: 100; }
+        .header-title-group { display: flex; flex-direction: column; gap: 4px; }
+        .header-title-group .title { font-size: 22px; font-weight: 700; background: linear-gradient(45deg, #3498db, #8e44ad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .status-area { display: flex; align-items: center; gap: var(--gap-s); font-size: 12px; color: var(--color-on-surface-variant); }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; transition: background-color 0.5s; }
+        .status-dot.connected { background-color: var(--color-success); }
+        .status-dot.disconnected { background-color: var(--color-error); }
+        .page-content { height: 100%; position: relative; }
+        .page { position: absolute; top: calc(var(--header-height) + env(safe-area-inset-top, 0px)); left: 0; right: 0; bottom: var(--nav-height); opacity: 0; visibility: hidden; transition: opacity var(--anim-duration) ease-in-out, visibility var(--anim-duration) ease-in-out; overflow-y: auto; background-color: var(--color-background); padding: var(--padding-m); }
+        .page.active { opacity: 1; visibility: visible; z-index: 10; }
+        .app-nav { position: fixed; bottom: 0; left: 0; right: 0; display: flex; height: var(--nav-height); background-color: var(--color-surface-container-highest); border-top: 1px solid var(--color-outline); box-shadow: 0 -2px 10px rgba(0,0,0,0.05); z-index: 100; }
+        .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; cursor: pointer; color: var(--color-on-surface-variant); transition: color 0.3s; }
+        .nav-item .material-symbols-outlined { font-size: 24px; }
+        .nav-item .nav-label { font-size: 12px; font-weight: 500; }
+        .nav-item.active { color: var(--color-accent); }
+        #relayListContainer { padding: 0; }
+        .relay-card { background: var(--color-surface-container-low); border-radius: var(--radius-m); margin-bottom: var(--gap-m); border: 1px solid var(--color-outline); overflow: hidden; }
+        .relay-header { display: flex; align-items: center; padding: var(--padding-m); cursor: pointer; }
+        .relay-title { flex-grow: 1; font-size: 18px; font-weight: 500; }
+        .summary-icons { display: flex; align-items: center; gap: var(--gap-s); }
+        .status-indicator { width: 12px; height: 12px; border-radius: 50%; background: var(--color-inactive); }
+        .relay-card[data-status="on"] .status-indicator { background: var(--color-success); }
+        .relay-card[data-status="off"] .status-indicator { background: var(--color-error); }
+        .edit-btn, .expand-btn { background: none; border: none; cursor: pointer; color: var(--color-on-surface-variant); padding: var(--padding-s); border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+        .expand-btn { transition: transform var(--anim-duration) var(--anim-curve); }
+        .relay-card.is-expanded .expand-btn { transform: rotate(180deg); }
+        .relay-content { padding: 0 var(--padding-m) var(--padding-m); border-top: 1px solid var(--color-outline); }
+        .relay-switch { position: relative; display: flex; width: 100%; height: 48px; margin-top: var(--gap-m); background: var(--color-accent-container); border-radius: var(--radius-l); overflow: hidden; box-shadow: inset 0 1px 3px rgba(0,0,0,.05); transition: opacity 0.3s, filter 0.3s; }
+        .relay-switch.disabled { opacity: 0.6; filter: grayscale(50%); pointer-events: none; }
+        .relay-switch button { width: 50%; height: 100%; line-height: 48px; background: transparent; border: none; font-size: 15px; font-weight: 500; color: var(--color-accent); cursor: pointer; position: relative; z-index: 1; transition: color .3s ease; }
+        .relay-switch .slider { position: absolute; top: 0; bottom: 0; width: 50%; background: var(--color-accent); border-radius: var(--radius-l); transition: transform .4s cubic-bezier(.22,1,.36,1.2); z-index: 0; pointer-events: none; }
+        .relay-switch.is-on .slider { transform: translateX(100%); }
+        .relay-switch.is-off .slider { transform: translateX(0); }
+        .relay-switch.is-off button:nth-child(2) { color: var(--color-on-accent); }
+        .relay-switch.is-on button:nth-child(3) { color: var(--color-on-accent); }
+        .card-extra-content { display: grid; grid-template-rows: 0fr; transition: grid-template-rows var(--anim-duration) var(--anim-curve); }
+        .card-extra-content > div { overflow: hidden; }
+        .relay-card.is-expanded .card-extra-content { grid-template-rows: 1fr; }
+        .auto-cycle-group, .timed-task-group { padding-top: var(--padding-m); margin-top: var(--gap-m); border-top: 1px dashed var(--color-outline); }
+        h3.colorful-subtitle { font-size: 14px; font-weight: 500; background: linear-gradient(45deg, #f39c12, #e74c3c); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .auto-cycle-header, .timed-task-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--gap-m); }
+        .auto-cycle-controls { display: flex; align-items: center; gap: var(--gap-m); }
+        .auto-cycle-controls span { font-size: 12px; color: var(--color-on-surface-variant); min-width: 60px; }
+        .auto-cycle-controls md-slider { flex-grow: 1; --md-sys-color-primary: var(--color-accent); --md-sys-color-on-primary: var(--color-on-accent); }
+        .timer-mode-switch { position: relative; display: flex; width: 100%; height: 40px; margin-bottom: var(--gap-m); background: var(--color-accent-container); border-radius: var(--radius-l); overflow: hidden; padding: 4px; }
+        .timer-mode-switch button { width: 50%; height: 100%; line-height: 32px; background: transparent; border: none; font-size: 13px; font-weight: 500; color: var(--color-on-accent-container); cursor: pointer; position: relative; z-index: 1; transition: color .3s ease; }
+        .timer-mode-switch .slider { position: absolute; top: 4px; bottom: 4px; width: calc(50% - 4px); background: var(--color-surface-container-highest); border-radius: var(--radius-l); z-index: 0; pointer-events: none; box-shadow: 0 1px 3px rgba(0,0,0,0.1); left: 4px; transition: left .4s cubic-bezier(.22,1,.36,1.2); }
+        .timer-mode-switch.mode-scheduled .slider { left: 50%; }
+        .timer-mode-switch.mode-countdown button:nth-child(2) { color: var(--color-on-accent-container); }
+        .timer-mode-switch.mode-scheduled button:nth-child(3) { color: var(--color-on-accent-container); }
+        .time-picker-container { display: flex; justify-content: center; align-items: center; gap: var(--gap-s); height: 120px; margin-bottom: var(--gap-m); position: relative; }
+        .time-picker-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; border-top: 1px solid var(--color-outline); border-bottom: 1px solid var(--color-outline); margin: 40px 0; }
+        .picker-wheel { height: 100%; width: 60px; overflow-y: hidden; touch-action: none; cursor: grab; }
+        .picker-list { list-style: none; padding: 0; margin: 0; }
+        .picker-item { height: 40px; display: flex; align-items: center; justify-content: center; font-size: 20px; color: var(--color-on-surface-variant); }
+        .picker-label { align-self: center; font-size: 16px; color: var(--color-on-surface-variant); }
+        .timer-action-area { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--gap-m); }
+        .timer-action-area .timer-action-prompt { font-size: 13px; color: var(--color-on-surface-variant); }
+        .timer-action-area .action-switch-label { display: flex; align-items: center; font-size: 13px; gap: 4px; }
+        .timer-controls { display: flex; margin-top: var(--gap-m); }
+        .timer-controls md-filled-button { flex-grow: 1; --md-filled-button-container-color: var(--color-accent); --md-filled-button-label-text-color: var(--color-on-accent); }
+        .timer-status-list { display: flex; flex-direction: column; gap: var(--gap-s); margin-top: var(--gap-m); }
+        .timer-status-item { font-size: 13px; padding: var(--padding-s) var(--padding-m); background-color: var(--color-accent-container); color: var(--color-on-accent-container); border-radius: var(--radius-m); display: flex; justify-content: space-between; align-items: center; }
+        .timer-status-item md-text-button { --md-text-button-label-text-color: var(--color-accent); }
+        #addRelayWrapper { display: flex; justify-content: center; padding-top: var(--gap-m); }
+        #addRelayButton { width: 100%; --md-filled-tonal-button-container-shape: var(--radius-l); --md-filled-tonal-button-container-height: 56px; --md-filled-tonal-button-container-color: var(--color-accent-container); --md-filled-tonal-button-label-text-color: var(--color-accent); }
+        #editModal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; z-index: 200; opacity: 0; pointer-events: none; transition: opacity var(--anim-duration) ease-in-out; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); background-color: rgba(255, 255, 255, 0.1); }
+        #editModal.show { opacity: 1; pointer-events: auto; }
+        .modal-content { background: var(--color-surface-container-highest); padding: 24px; border-radius: var(--radius-l); width: calc(100% - 32px); max-width: 400px; box-shadow: 0 8px 16px rgba(0,0,0,0.1); transform: scale(0.9); transition: transform var(--anim-duration) var(--anim-curve), opacity var(--anim-duration) var(--anim-curve); }
+        #editModal.show .modal-content { transform: scale(1); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--gap-m); }
+        .modal-header h2 { margin: 0; font-size: 24px; }
+        .modal-header .delete-icon-btn { background: none; border: none; cursor: pointer; color: var(--color-on-surface-variant); padding: var(--padding-s); border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+        .modal-content md-outlined-text-field { width: 100%; margin-bottom: var(--gap-m); --md-outlined-text-field-focus-outline-color: var(--color-accent); --md-outlined-text-field-focus-label-text-color: var(--color-accent); }
+        .modal-actions { display: flex; justify-content: flex-end; gap: var(--gap-s); margin-top: 24px; }
+        #saveEdit { flex-grow: 1; max-width: 80%; --md-filled-button-container-color: var(--color-accent); --md-filled-button-label-text-color: var(--color-on-accent); }
+        #cancelEdit {--md-text-button-label-text-color: var(--color-accent); }
+        #deleteConfirmButton { --md-filled-button-container-color: var(--color-error); --md-filled-button-label-text-color: #FFFFFF; flex-grow: 1; }
+        #cancelDelete { --md-text-button-label-text-color: var(--color-on-surface-variant); }
+        #page-command-debug { padding: 0; display: flex; flex-direction: column; overflow: hidden; }
+        #page-command-debug .message-list { flex-grow: 1; overflow-y: auto; padding: var(--padding-m); display: flex; flex-direction: column; gap: var(--gap-m); }
+        @keyframes slide-in-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        #page-command-debug .message-bubble { max-width: 85%; padding: 12px var(--padding-m); border-radius: var(--radius-m); font-family: 'Menlo', 'Courier New', Courier, monospace; font-size: 14px; word-wrap: break-word; box-shadow: 0 2px 8px rgba(0,0,0,0.05); animation: slide-in-up 0.5s var(--anim-curve); border: 1px solid transparent; }
+        #page-command-debug .message-bubble .timestamp { display: block; font-size: 10px; margin-top: var(--gap-s); text-align: right; font-family: 'Roboto', sans-serif; opacity: 0.7; }
+        #page-command-debug .message-bubble.sent { background-color: var(--color-accent); color: var(--color-on-accent); align-self: flex-end; border-bottom-right-radius: 4px; }
+        #page-command-debug .message-bubble.sent .timestamp { color: var(--color-on-accent); }
+        #page-command-debug .message-bubble.received { background-color: var(--color-surface-container-low); color: var(--color-on-surface); border-color: var(--color-outline); align-self: flex-start; border-bottom-left-radius: 4px; }
+        #page-command-debug .message-bubble.received .timestamp { color: var(--color-on-surface-variant); }
+        #page-command-debug .input-footer { flex-shrink: 0; padding: var(--padding-m); background-color: var(--color-surface-container-highest); box-shadow: 0 -4px 12px rgba(0,0,0,0.03); border-top-left-radius: var(--radius-m); border-top-right-radius: var(--radius-m); }
+        #page-command-debug .input-row { display: flex; align-items: center; gap: var(--gap-s); }
+        #page-command-debug .input-row .icon-btn { display: flex; align-items: center; justify-content: center; width: 52px; height: 52px; border-radius: 50%; border: 1px solid var(--color-outline); background-color: var(--color-surface-container-low); color: var(--color-on-surface-variant); cursor: pointer; flex-shrink: 0; transition: all 0.3s; }
+        #page-command-debug .input-row .icon-btn:hover { border-color: var(--color-accent); color: var(--color-accent); }
+        #page-command-debug .input-row .input-wrapper { flex-grow: 1; position: relative; }
+        #page-command-debug .input-row .input-wrapper input { width: 100%; height: 52px; padding: 0 var(--padding-m); border: 1px solid var(--color-outline); border-radius: var(--radius-m); font-size: 16px; background-color: var(--color-surface-container-low); }
+        #page-command-debug .input-row .send-btn { background-color: var(--color-accent); color: var(--color-on-accent); border: none; }
+        .panel-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.4); z-index: 150; opacity: 0; pointer-events: none; transition: opacity 0.4s ease; }
+        .panel-overlay.show { opacity: 1; pointer-events: auto; }
+        #statsPanel { position: fixed; bottom: 0; left: 0; right: 0; background-color: var(--color-surface-container-highest); border-top-left-radius: var(--radius-m); border-top-right-radius: var(--radius-m); z-index: 200; padding: var(--padding-m) var(--padding-l) calc(var(--padding-l)); box-shadow: 0 -8px 24px rgba(0,0,0,0.1); transform: translateY(100%); transition: transform 0.4s var(--anim-curve); }
+        #statsPanel.show { transform: translateY(0); }
+        #statsPanel h3 { font-size: 18px; margin-bottom: var(--gap-m); text-align: center; }
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--gap-m); margin-bottom: var(--padding-l); }
+        .stat-item { text-align: center; }
+        .stat-item .value { font-size: 24px; font-weight: 700; }
+        .stat-item .label { font-size: 12px; color: var(--color-on-surface-variant); }
+        .stat-item .value.sent-success { color: var(--color-success); }
+        .stat-item .value.sent-fail { color: var(--color-error); }
+        .stat-item .value.received { color: var(--color-accent); }
+        .panel-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--gap-m); }
+        .panel-row .label { font-size: 14px; font-weight: 500; }
+        .switch { cursor: pointer; display: inline-block; position: relative; width: 38px; height: 22px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider.round { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--color-inactive); border-radius: 22px; transition: .4s; }
+        .slider.round:before { position: absolute; content: ""; height: 18px; width: 18px; left: 2px; bottom: 2px; background-color: white; border-radius: 50%; transition: .4s; }
+        input:checked + .slider.round { background-color: var(--color-accent); }
+        input:checked + .slider.round:before { transform: translateX(16px); }
+        .format-toggle-group { display: flex; justify-content: space-between; align-items: flex-start; }
+        .toggle-container { display: flex; flex-direction: column; align-items: center; gap: var(--gap-s); }
+        .toggle-label { font-size: 11px; font-weight: 500; color: var(--color-on-surface-variant); }
+        .format-toggle { display: flex; align-items: center; background-color: var(--color-surface-container-low); padding: 4px; border-radius: var(--radius-l); position: relative; }
+        .format-toggle input[type="radio"] { display: none; }
+        .format-toggle label { padding: 6px 12px; font-size: 13px; font-weight: 500; color: var(--color-on-surface-variant); border-radius: var(--radius-l); cursor: pointer; position: relative; z-index: 2; transition: color 0.3s ease; }
+        .format-toggle input[type="radio"]:checked + label { color: var(--color-on-accent); }
+        .format-toggle .toggle-slider { position: absolute; top: 4px; bottom: 4px; width: calc(50% - 4px); background-color: var(--color-accent); border-radius: var(--radius-l); z-index: 1; transition: transform 0.4s var(--anim-curve); }
+        .format-toggle input[type="radio"][value="text"]:checked ~ .toggle-slider { transform: translateX(100%); }
+        #confirmDialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.9); background-color: var(--color-surface-container-highest); border-radius: var(--radius-m); padding: var(--padding-l); z-index: 250; width: calc(100% - 48px); max-width: 320px; box-shadow: 0 8px 24px rgba(0,0,0,0.15); opacity: 0; pointer-events: none; transition: all 0.4s var(--anim-curve); }
+        #confirmDialog.show { opacity: 1; pointer-events: auto; transform: translate(-50%, -50%) scale(1); }
+        #confirmDialog p { margin: 0; margin-bottom: var(--gap-m); font-size: 14px; line-height: 1.5; }
+        .dialog-actions { display: flex; justify-content: flex-end; gap: var(--gap-s); }
+        .dialog-actions button { padding: 8px 16px; border-radius: var(--radius-l); border: none; font-weight: 500; cursor: pointer; transition: background-color 0.3s; }
+        #confirmCancel { background-color: transparent; color: var(--color-on-surface-variant); }
+        #confirmAction { background-color: var(--color-error); color: white; }
+        #page-about .content-card { background-color: var(--color-surface-container-low); padding: var(--padding-m); border-radius: var(--radius-m); margin-bottom: var(--gap-m); }
+        #page-about h2 { font-size: 20px; color: var(--color-accent); margin-bottom: var(--gap-s); padding-bottom: var(--gap-s); border-bottom: 2px solid var(--color-accent-container); }
+        #page-about h3 { font-size: 16px; margin-top: var(--gap-m); margin-bottom: var(--gap-s); color: var(--color-on-surface); }
+        #page-about p, #page-about li { font-size: 14px; line-height: 1.6; color: var(--color-on-surface-variant); }
+        #page-about ul, #page-about ol { padding-left: 20px; margin-top: var(--gap-s); }
+        #page-about code { background-color: var(--color-outline); padding: 2px 6px; border-radius: 4px; font-family: 'Menlo', monospace; font-size: 13px; }
+        #page-about .info-chip { display: inline-block; background-color: var(--color-accent-container); color: var(--color-on-accent-container); padding: 4px 10px; border-radius: var(--radius-l); font-weight: 500; margin-top: var(--gap-s); }
+        #page-about .material-symbols-outlined { font-size: 1.2em; vertical-align: bottom; line-height: 1; }
+        #bluetoothFab { position: fixed; bottom: calc(var(--nav-height) + var(--padding-m)); right: var(--padding-m); z-index: 20; --md-fab-container-color: var(--color-accent); --md-fab-icon-color: var(--color-on-accent); transition: transform 0.3s var(--anim-curve), opacity 0.3s var(--anim-curve); }
+        #bluetoothFab.hidden { transform: scale(0); opacity: 0; }
+        #toast { position: fixed; bottom: -100px; left: 50%; transform: translateX(-50%); background-color: #333; color: #fff; padding: var(--padding-s) var(--padding-m); border-radius: var(--radius-l); font-size: 14px; z-index: 300; transition: bottom 0.5s ease; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+        #permissionDialogOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 240; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
+        #permissionDialogOverlay.show { opacity: 1; pointer-events: auto; }
+        #permissionDialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.9); background-color: var(--color-surface-container-highest); border-radius: var(--radius-m); padding: var(--padding-l); z-index: 250; width: calc(100% - 48px); max-width: 320px; box-shadow: 0 8px 24px rgba(0,0,0,0.15); opacity: 0; pointer-events: none; transition: all 0.3s var(--anim-curve); }
+        #permissionDialog.show { opacity: 1; pointer-events: auto; transform: translate(-50%, -50%) scale(1); }
+        #permissionDialog p { margin: 0; margin-bottom: var(--gap-m); font-size: 14px; line-height: 1.5; color: var(--color-on-surface-variant); }
+        #permissionDialog h3 { margin: 0 0 8px; font-size: 18px; color: var(--color-on-surface); }
+        #permissionDialog .dialog-actions { display: flex; justify-content: flex-end; gap: var(--gap-s); }
+        .timer-indicator { display: none; color: var(--color-accent); font-size: 16px; vertical-align: middle; }
+        .relay-card.timer-active .timer-indicator { display: inline-block; animation: pulse-timer-icon 2s infinite cubic-bezier(0.4, 0, 0.6, 1); }
+        @keyframes pulse-timer-icon { 0%, 100% { transform: scale(1); opacity: 0.7; } 50% { transform: scale(1.2); opacity: 1; } }
+
+        /* Log Page Styles */
+        #page-log { padding: 0; display: flex; flex-direction: column; overflow: hidden; }
+        #logContainer { flex-grow: 1; overflow-y: auto; }
+        .log-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .log-table thead { position: sticky; top: 0; background-color: var(--color-surface-container-low); z-index: 1; }
+        .log-table th { padding: 12px var(--padding-m); text-align: left; font-weight: 500; color: var(--color-on-surface-variant); border-bottom: 1px solid var(--color-outline); }
+        .log-table td { padding: 10px var(--padding-m); border-bottom: 1px solid var(--color-outline); line-height: 1.5; vertical-align: top; font-family: 'Menlo', 'Courier New', monospace; }
+        .log-row .log-type span { padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; font-family: 'Roboto', sans-serif; }
+        .log-type .sent { background-color: var(--color-accent-container); color: var(--color-on-accent-container); }
+        .log-type .received { background-color: #e8f5e9; color: #2e7d32; }
+        .log-type .system { background-color: #f3e5f5; color: #6a1b9a; }
+        .log-type .error { background-color: #fbe9e7; color: #d84315; }
+        .log-content { word-break: break-all; }
+        .log-description { color: var(--color-on-surface-variant); font-family: 'Roboto', sans-serif; }
+        .log-placeholder { text-align: center; margin-top: 48px; color: var(--color-on-surface-variant); }
+        .log-placeholder .material-symbols-outlined { font-size: 48px; margin-bottom: var(--gap-s); }
+        /* --- 全新弹窗样式 开始 --- */
+#page-about .payment-modal-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 200;
+    display: flex; align-items: center; justify-content: center;
+    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+    background-color: rgba(255, 255, 255, 0.1);
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.3s ease-in-out;
+}
+/* 使用 :target 伪类来控制显示，无需JS */
+#page-about .payment-modal-overlay:target {
+    opacity: 1; pointer-events: auto;
+}
+#page-about .payment-modal-content {
+    background: var(--color-surface-container-highest);
+    padding: 24px; border-radius: var(--radius-l, 28px);
+    width: calc(100% - 32px); max-width: 400px;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+    transform: scale(0.9);
+    transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+#page-about .payment-modal-overlay:target .payment-modal-content {
+    transform: scale(1);
+}
+/* 纯CSS切换按钮的实现 */
+#page-about .payment-toggle {
+    display: flex; background-color: var(--color-surface-container-low);
+    border-radius: var(--radius-m); padding: 4px; margin-bottom: 20px;
+}
+/* 隐藏真正的radio按钮 */
+#page-about .payment-toggle input[type="radio"] {
+    display: none;
+}
+/* 将label标签作为可见的按钮 */
+#page-about .payment-toggle label {
+    flex: 1; padding: 8px; border: none; background-color: transparent;
+    border-radius: 12px; font-size: 14px; font-weight: 500;
+    color: var(--color-on-surface-variant); cursor: pointer;
+    transition: all 0.3s ease; text-align: center;
+}
+/* 当radio按钮被选中时，它后面的兄弟label标签改变样式 */
+#page-about .payment-toggle input[type="radio"]:checked + label {
+    background-color: var(--color-accent); color: var(--color-on-accent);
+    box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
+}
+/* 图片容器和图片样式 */
+#page-about .qr-image-container { text-align: center; }
+#page-about .qr-image {
+    display: none; /* 默认所有图片都隐藏 */
+    width: 210px;  /* 修正后的宽度 */
+    height: 280px; /* 修正后的高度，实现4:3高:宽比 */
+    border-radius: var(--radius-m); border: 1px solid var(--color-outline);
+    object-fit: contain;
+}
+/* 当radio被选中时，通过兄弟选择器~来显示对应的图片 */
+#page-about #wx-radio:checked ~ .qr-image-container #wx-qr,
+#page-about #zfb-radio:checked ~ .qr-image-container #zfb-qr {
+    display: inline-block; /* 显示对应的图片 */
+}
+/* --- 全新弹窗样式 结束 --- */
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <header class="app-header">
+        <div class="header-title-group">
+            <span class="title" id="appTitle">SPP蓝牙自动化控制</span>
+            <div class="status-area">
+                <div id="globalBtStateDot" class="status-dot disconnected"></div>
+                <span id="globalBtStateText">未连接</span>
+            </div>
+        </div>
+        <div id="headerActions"></div>
+    </header>
+
+    <main class="page-content">
+        <div id="page-relay-control" class="page active">
+            <div id="relayListContainer">
+                <div id="relayList"></div>
+                <div id="addRelayWrapper">
+                    <md-filled-tonal-button id="addRelayButton">
+                        <span class="material-symbols-outlined" slot="icon">add</span>添加继电器
+                    </md-filled-tonal-button>
+                </div>
+            </div>
+        </div>
+
+        <div id="page-command-debug" class="page">
+            <div class="message-list" id="debugMessageList"></div>
+            <footer class="input-footer">
+                <div class="input-row">
+                    <button class="icon-btn" id="statsButton" aria-label="打开仪表盘">
+                        <span class="material-symbols-outlined">query_stats</span>
+                    </button>
+                    <div class="input-wrapper">
+                        <input type="text" id="commandInput" placeholder="输入hex或文本指令...">
+                    </div>
+                    <button class="icon-btn send-btn" id="sendButton" aria-label="发送">
+                        <span class="material-symbols-outlined">send</span>
+                    </button>
+                </div>
+            </footer>
+        </div>
+
+        <div id="page-log" class="page">
+            <div id="logContainer">
+                <div id="logPlaceholder" class="log-placeholder">
+                    <span class="material-symbols-outlined">history</span>
+                    <p>暂无日志记录</p>
+                </div>
+                <table class="log-table" style="display: none;">
+                    <thead>
+                    <tr>
+                        <th>时间</th>
+                        <th>类型</th>
+                        <th>内容 (16进制)</th>
+                        <th>描述</th>
+                    </tr>
+                    </thead>
+                    <tbody id="logList"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="page-about" class="page">
+            <div class="content-card">
+                <div class="about-header">
+                    <span class="material-symbols-outlined icon">info</span>
+                    <h2>关于本项目</h2>
+                </div>
+                <p>这是一款专为电子爱好者和开发者设计的SPP经典蓝牙多功能图形化智能APP。它不仅提供了直观的继电器控制界面，还集成了强大的底层指令调试工具，并通过后台服务确保蓝牙连接的稳定和定时任务的精准执行。</p>
+                <p style="display: flex; align-items: center; gap: 8px; margin-top: 12px; flex-wrap: wrap;">
+                    <strong>作者：</strong> 拿铁咖啡不加奶 &nbsp;
+                    <span style="display: inline-flex; align-items: center; gap: 4px;">
+                <svg height="1em" style="flex:none;line-height:1" viewBox="0 0 24 24" width="1em" xmlns="http://www.w3.org/2000/svg"><title>Gemini</title><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="#3186FF"></path><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="url(#lobe-icons-gemini-fill-0)"></path><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="url(#lobe-icons-gemini-fill-1)"></path><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="url(#lobe-icons-gemini-fill-2)"></path><defs><linearGradient gradientUnits="userSpaceOnUse" id="lobe-icons-gemini-fill-0" x1="7" x2="11" y1="15.5" y2="12"><stop stop-color="#08B962"></stop><stop offset="1" stop-color="#08B962" stop-opacity="0"></stop></linearGradient><linearGradient gradientUnits="userSpaceOnUse" id="lobe-icons-gemini-fill-1" x1="8" x2="11.5" y1="5.5" y2="11"><stop stop-color="#F94543"></stop><stop offset="1" stop-color="#F94543" stop-opacity="0"></stop></linearGradient><linearGradient gradientUnits="userSpaceOnUse" id="lobe-icons-gemini-fill-2" x1="3.5" x2="17.5" y1="13.5" y2="12"><stop stop-color="#FABC12"></stop><stop offset=".46" stop-color="#FABC12" stop-opacity="0"></stop></linearGradient></defs></svg>
+                Gemini调试开发
+            </span>
+                </p>
+                <p style="margin-top: 8px;"><strong>问题反馈：</strong> QQ 1570666721 / shj561661@outlook.com</p>
+                <p style="margin-top: 8px;">16岁初中生于2025年7月用AI协作完成的第一个安卓项目。</p>
+                <p class="info-chip">版本: 1.0.0 (one)</p>
+            </div>
+
+            <div class="content-card">
+                <div class="about-header">
+                    <span class="material-symbols-outlined icon">category</span>
+                    <h2>核心功能详解</h2>
+                </div>
+                <ul class="feature-list" style="padding:0; list-style:none;">
+                    <li class="feature-item">
+                        <span class="material-symbols-outlined icon" style="font-size:24px; color:var(--color-accent); margin-top:2px;">dynamic_feed</span>
+                        <div class="feature-item-content" style="flex:1;">
+                            <h4 style="font-size:16px; font-weight:500; margin:0 0 4px;">多路动态控制</h4>
+                            <p>您可以根据需要，动态添加、编辑和删除控制卡片。每张卡片都可独立配置名称和开关对应的16进制指令，所有配置都会自动保存在本地，为您提供极高的灵活性和个性化体验。</p>
+                        </div>
+                    </li>
+                    <li class="feature-item">
+                        <span class="material-symbols-outlined icon" style="font-size:24px; color:var(--color-accent); margin-top:2px;">alarm</span>
+                        <div class="feature-item-content" style="flex:1;">
+                            <h4 style="font-size:16px; font-weight:500; margin:0 0 4px;">精准后台定时</h4>
+                            <p>利用Android系统的<code>AlarmManager</code>，您可以设置倒计时或预约定时任务。得益于后台服务，即使App退至后台、息屏甚至设备休眠，任务依然会被唤醒并在预设时间精准触发，确保自动化任务万无一失。</p>
+                        </div>
+                    </li>
+                    <li class="feature-item">
+                        <span class="material-symbols-outlined icon" style="font-size:24px; color:var(--color-accent); margin-top:2px;">autorenew</span>
+                        <div class="feature-item-content" style="flex:1;">
+                            <h4 style="font-size:16px; font-weight:500; margin:0 0 4px;">高频自动循环</h4>
+                            <p>为单个设备开启自动循环模式，可自由调节每秒1到20次的开关频率。此功能非常适用于需要进行高频开关的设备测试、产品老化实验或任何需要快速脉冲信号的场景。</p>
+                        </div>
+                    </li>
+                    <li class="feature-item">
+                        <span class="material-symbols-outlined icon" style="font-size:24px; color:var(--color-accent); margin-top:2px;">terminal</span>
+                        <div class="feature-item-content" style="flex:1;">
+                            <h4 style="font-size:16px; font-weight:500; margin:0 0 4px;">底层指令调试</h4>
+                            <p>专为开发者设计的调试界面，支持以16进制或文本格式直接收发数据。您可以实时查看发送和接收的原始数据流，是进行蓝牙模块底层通信协议开发与验证的强大工具。</p>
+                        </div>
+                    </li>
+                    <li class="feature-item">
+                        <span class="material-symbols-outlined icon" style="font-size:24px; color:var(--color-accent); margin-top:2px;">history</span>
+                        <div class="feature-item-content" style="flex:1;">
+                            <h4 style="font-size:16px; font-weight:500; margin:0 0 4px;">全面操作日志</h4>
+                            <p>自动记录蓝牙连接、断开、数据收发、系统错误等所有关键操作，并提供清晰的分类和精确到毫秒的时间戳。当出现意外情况时，日志页面是您追溯问题、快速定位故障的得力助手。</p>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="content-card">
+                <div class="about-header">
+                    <span class="material-symbols-outlined icon">architecture</span>
+                    <h2>应用架构解析</h2>
+                </div>
+                <p>本应用采用现代Android混合开发模式，将Web技术的灵活与原生功能的强大深度融合，实现了高性能与高效率的统一。</p>
+                <ul style="padding-left: 20px;">
+                    <li>
+                        <strong>前端界面 (UI Layer):</strong>
+                        <p>整个用户界面由<code>HTML</code>、<code>CSS</code>和<code>JavaScript</code>构建，运行在Android原生的<code>WebView</code>组件中。这种方式使得UI的开发和迭代速度极快，并且能够轻松实现流畅、现代的设计效果。</p>
+                    </li>
+                    <li>
+                        <strong>原生后端 (Logic Layer - Kotlin):</strong>
+                        <p>应用的核心逻辑由原生Kotlin代码驱动，确保了功能的稳定和高效。</p>
+                        <ul style="padding-left: 20px;">
+                            <li><strong><code>BluetoothService.kt</code>:</strong> 这是应用的“心脏”。它是一个<code>Foreground Service</code>（前台服务），被赋予了高系统优先级，能确保在App退至后台或锁屏后，蓝牙连接依然保持活动，不会被系统轻易“杀死”。它管理着蓝牙的连接、数据读写的所有线程，并作为定时任务的最终执行者。</li>
+                            <li><strong><code>AlarmReceiver.kt</code>:</strong> 这是一个<code>BroadcastReceiver</code>（广播接收器），专门用于接收由系统<code>AlarmManager</code>在精确时间点发出的“闹钟”广播。一旦接收到广播，它会立即唤醒<code>BluetoothService</code>去执行预设的指令，这是实现精准、可靠后台定时任务的关键。</li>
+                            <li><strong><code>MainActivity.kt</code>:</strong> 作为应用的主活动页，它承载着<code>WebView</code>，是UI和用户交互的入口。同时，它也负责处理蓝牙、通知等系统权限的请求，并作为原生后端与前端UI之间的“协调员”。</li>
+                        </ul>
+                    </li>
+                    <li>
+                        <strong>通信桥梁 (Bridge):</strong>
+                        <p>前端与后端通过一套高效的双向通信机制协同工作：</p>
+                        <ul style="padding-left: 20px;">
+                            <li><strong>JS -> Native:</strong> 前端通过<code>@JavascriptInterface</code>暴露的<code>BTBridge</code>对象，可以直接调用<code>MainActivity.kt</code>中定义的Kotlin函数，如<code>BTBridge.sendData("A0...")</code>，从而向原生层下达指令。</li>
+                            <li><strong>Native -> JS:</strong> 原生层（如<code>BluetoothService</code>）通过发送广播（<code>Broadcast</code>）来通知状态变化。<code>MainActivity</code>接收到广播后，会通过<code>WebView.evaluateJavascript(...)</code>方法执行相应的JS函数（如<code>window.onData(...)</code>），从而将原生层的事件实时反馈到UI上，实现界面数据的动态更新。</li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="content-card">
+                <div class="about-header">
+                    <span class="material-symbols-outlined icon">favorite</span>
+                    <h2>支持与开源</h2>
+                </div>
+                <p>如果这个项目对您有帮助，欢迎通过以下方式支持我。您的鼓励是我持续更新和创作的动力！</p>
+                <div class="support-links" style="display: flex; gap: 16px; margin-top: 16px;">
+                    <a href="https://github.com/example" target="_blank" style="flex: 1; text-decoration: none; padding: 12px; border-radius: 12px; background-color: #333; color: white; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 500;">
+                        <svg class="icon" viewBox="0 0 16 16" fill="currentColor" height="1em" width="1em"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path></svg>
+                        <span>GitHub</span>
+                    </a>
+                    <a href="#paymentModal" style="flex: 1; text-decoration: none; padding: 12px; border-radius: 12px; background-color: #FFDD00; color: #3D2B1F; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 500; cursor: pointer;">
+                        <span class="material-symbols-outlined icon">coffee</span>
+                        <span>请我喝杯咖啡</span>
+                    </a>
+                </div>
+            </div>
+
+            <div id="paymentModal" class="payment-modal-overlay">
+                <div class="payment-modal-content">
+                    <a href="#" style="position: absolute; top: 16px; right: 20px; font-size: 28px; text-decoration: none; color: var(--color-on-surface-variant);">&times;</a>
+
+                    <div class="payment-toggle">
+                        <input type="radio" name="payment-method" id="wx-radio" checked>
+                        <label for="wx-radio">微信支付</label>
+
+                        <input type="radio" name="payment-method" id="zfb-radio">
+                        <label for="zfb-radio">支付宝</label>
+                    </div>
+
+                    <div class="qr-image-container">
+                        <img id="wx-qr" class="qr-image" src=" " alt="微信支付二维码">
+                        <img id="zfb-qr" class="qr-image" src=" " alt="支付宝二维码">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    <nav class="app-nav">
+        <div class="nav-item active" data-page="page-relay-control" data-title="SPP蓝牙自动化控制">
+            <span class="material-symbols-outlined">toggle_on</span>
+            <span class="nav-label">控制</span>
+        </div>
+        <div class="nav-item" data-page="page-command-debug" data-title="指令调试">
+            <span class="material-symbols-outlined">terminal</span>
+            <span class="nav-label">调试</span>
+        </div>
+        <div class="nav-item" data-page="page-log" data-title="操作日志">
+            <span class="material-symbols-outlined">history</span>
+            <span class="nav-label">日志</span>
+        </div>
+        <div class="nav-item" data-page="page-about" data-title="关于">
+            <span class="material-symbols-outlined">help_outline</span>
+            <span class="nav-label">关于</span>
+        </div>
+    </nav>
+</div>
+
+<md-fab id="bluetoothFab" aria-label="蓝牙连接">
+    <span class="material-symbols-outlined" slot="icon">bluetooth</span>
+</md-fab>
+<div id="toast"></div>
+<div id="editModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>编辑继电器</h2>
+            <button class="delete-icon-btn" id="deleteRelayIcon" aria-label="删除继电器"><span class="material-symbols-outlined">delete</span></button>
+        </div>
+        <input type="hidden" id="editRelayIndex">
+        <md-outlined-text-field label="继电器名称" id="editRelayName"></md-outlined-text-field>
+        <md-outlined-text-field label="开启指令 (hex)" id="editOnCommand"></md-outlined-text-field>
+        <md-outlined-text-field label="关闭指令 (hex)" id="editOffCommand"></md-outlined-text-field>
+        <div class="modal-actions" id="normalActions">
+            <md-text-button id="cancelEdit">取消</md-text-button>
+            <md-filled-button id="saveEdit">保存</md-filled-button>
+        </div>
+        <div class="modal-actions" id="deleteConfirmActions" style="display: none;">
+            <md-text-button id="cancelDelete">取消</md-text-button>
+            <md-filled-button id="deleteConfirmButton">确认删除</md-filled-button>
+        </div>
+    </div>
+</div>
+<div class="panel-overlay" id="panelOverlay"></div>
+<div id="statsPanel">
+    <h3>调试仪表盘</h3>
+    <div class="stats-grid">
+        <div class="stat-item"><div class="value sent-success" id="sentSuccessCount">0</div><div class="label">发送成功</div></div>
+        <div class="stat-item"><div class="value sent-fail" id="sentFailCount">0</div><div class="label">发送失败</div></div>
+        <div class="stat-item"><div class="value received" id="receivedCount">0</div><div class="label">已接收</div></div>
+    </div>
+    <div class="panel-row">
+        <div class="label">自动滚动</div>
+        <label class="switch"><input type="checkbox" id="autoScrollToggle" checked><span class="slider round"></span></label>
+    </div>
+    <hr style="border: none; border-top: 1px solid var(--color-outline); margin: var(--gap-m) 0;">
+    <div class="format-toggle-group">
+        <div class="toggle-container">
+            <div class="toggle-label">发送格式</div>
+            <div class="format-toggle" id="sendFormatToggle">
+                <input type="radio" name="sendFormat" value="hex" id="sendHex" checked><label for="sendHex">hex</label>
+                <input type="radio" name="sendFormat" value="text" id="sendText"><label for="sendText">文本</label>
+                <div class="toggle-slider"></div>
+            </div>
+        </div>
+        <div class="toggle-container">
+            <div class="toggle-label">接收格式</div>
+            <div class="format-toggle" id="receiveFormatToggle">
+                <input type="radio" name="receiveFormat" value="hex" id="receiveHex" checked><label for="receiveHex">hex</label>
+                <input type="radio" name="receiveFormat" value="text" id="receiveText"><label for="receiveText">文本</label>
+                <div class="toggle-slider"></div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="panel-overlay" id="confirmOverlay"></div>
+<div id="confirmDialog">
+    <p id="confirmDialogMessage"></p>
+    <div class="dialog-actions">
+        <button id="confirmCancel">取消</button>
+        <button id="confirmAction">确认</button>
+    </div>
+</div>
+
+<div id="permissionDialogOverlay" class="panel-overlay"></div>
+<div id="permissionDialog">
+    <h3>需要权限</h3>
+    <p>定时任务功能需要"闹钟与提醒"权限才能在指定时间准确执行。请前往系统设置页授予此权限。</p>
+    <div class="dialog-actions">
+        <md-text-button id="cancelPermissionBtn">取消</md-text-button>
+        <md-filled-button id="grantPermissionBtn">去设置</md-filled-button>
+    </div>
+</div>
+
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+
+        // Mock BTBridge for testing in a browser environment
+        if (!window.BTBridge) {
+            console.warn("未找到 BTBridge 接口，已启动模拟测试模式。");
+            window.BTBridge = (() => {
+                let isConnected = false;
+                let mockTimers = {};
+                let mockTimerIntervals = {};
+                const broadcastTimerUpdate = () => {
+                    if (window.onTimerUpdate) {
+                        const timersJson = JSON.stringify(Object.values(mockTimers));
+                        window.onTimerUpdate(btoa(timersJson), true);
+                    }
+                };
+                return {
+                    connect: () => {
+                        console.log("[SIMULATE] connect called.");
+                        setTimeout(() => {
+                            isConnected = true;
+                            if (window.onConnectionStateChange) window.onConnectionStateChange(true, 'HCW-Mock');
+                        }, 1000);
+                    },
+                    disconnect: () => {
+                        console.log("[SIMULATE] disconnect called.");
+                        isConnected = false;
+                        if (window.onConnectionStateChange) window.onConnectionStateChange(false, '未连接');
+                    },
+                    sendData: (hex) => {
+                        console.log(`[SIMULATE] Sending command: ${hex}`);
+                        if (window.onData) setTimeout(() => window.onData(hex), 100);
+                    },
+                    setTimer: (taskId, delayMs, command) => {
+                        console.log(`[SIMULATE] Setting timer: ${taskId}, ${delayMs}ms, ${command}`);
+                        mockTimers[taskId] = { id: taskId, command, triggerAt: Date.now() + delayMs };
+                        if(mockTimerIntervals[taskId]) clearTimeout(mockTimerIntervals[taskId]);
+                        mockTimerIntervals[taskId] = setTimeout(() => {
+                            console.log(`[SIMULATE] Timer fired: ${taskId}`);
+                            const finishedTask = mockTimers[taskId];
+                            delete mockTimers[taskId];
+                            if (window.onData) window.onData(command);
+                            broadcastTimerUpdate();
+                        }, delayMs);
+                        broadcastTimerUpdate();
+                    },
+                    cancelTimer: (taskId) => {
+                        console.log(`[SIMULATE] Cancelling timer: ${taskId}`);
+                        if (mockTimers[taskId]) delete mockTimers[taskId];
+                        if (mockTimerIntervals[taskId]) {
+                            clearTimeout(mockTimerIntervals[taskId]);
+                            delete mockTimerIntervals[taskId];
+                        }
+                        broadcastTimerUpdate();
+                    },
+                    checkExactAlarmPermission: () => console.log("[SIMULATE] checkExactAlarmPermission called."),
+                    requestExactAlarmPermission: () => showToast("已跳转到模拟的设置页面")
+                };
+            })();
+        }
+
+        // Global application state
+        const AppState = {
+            currentPage: 'page-relay-control',
+            isBtConnected: false,
+            activeTimers: {},
+            countdownIntervals: {}
+        };
+
+        // DOM element references
+        const navItems = document.querySelectorAll('.nav-item');
+        const pages = document.querySelectorAll('.page');
+        const appTitle = document.getElementById('appTitle');
+        const headerActions = document.getElementById('headerActions');
+        const bluetoothFab = document.getElementById('bluetoothFab');
+        const globalBtStateDot = document.getElementById('globalBtStateDot');
+        const globalBtStateText = document.getElementById('globalBtStateText');
+        const toastElement = document.getElementById('toast');
+        const permissionDialog = document.getElementById('permissionDialog');
+        const permissionOverlay = document.getElementById('permissionDialogOverlay');
+        const confirmDialog = document.getElementById('confirmDialog');
+        const confirmOverlay = document.getElementById('confirmOverlay');
+        const confirmMessage = document.getElementById('confirmDialogMessage');
+        const confirmActionBtn = document.getElementById('confirmAction');
+        const confirmCancelBtn = document.getElementById('confirmCancel');
+
+        // --- Core App Logic ---
+
+        const switchPage = (pageId) => {
+            if (AppState.currentPage === pageId) return;
+            document.querySelector('.page.active')?.classList.remove('active');
+            document.getElementById(pageId)?.classList.add('active');
+            AppState.currentPage = pageId;
+            const activeNavItem = document.querySelector(`.nav-item[data-page="${pageId}"]`);
+            document.querySelector('.nav-item.active')?.classList.remove('active');
+            if (activeNavItem) {
+                activeNavItem.classList.add('active');
+                appTitle.textContent = activeNavItem.dataset.title;
+            }
+            updateHeaderAndFab(pageId);
+        };
+
+        const updateHeaderAndFab = (pageId) => {
+            headerActions.innerHTML = '';
+            let fabVisible = true;
+            if (pageId === 'page-command-debug' || pageId === 'page-log') {
+                const clearBtn = document.createElement('button');
+                clearBtn.className = 'clear-btn';
+                clearBtn.style.cssText = 'background:none; border:none; color:var(--color-on-surface-variant); cursor:pointer; padding: 8px;';
+                clearBtn.innerHTML = '<span class="material-symbols-outlined">delete_sweep</span>';
+
+                if (pageId === 'page-command-debug') {
+                    clearBtn.setAttribute('aria-label', '清空调试日志与统计');
+                    clearBtn.onclick = () => DebugPage.showClearConfirm();
+                } else { // page-log
+                    clearBtn.setAttribute('aria-label', '清空操作日志');
+                    clearBtn.onclick = () => LogPage.showClearConfirm();
+                }
+
+                headerActions.appendChild(clearBtn);
+                fabVisible = false;
+            }
+            bluetoothFab.classList.toggle('hidden', !fabVisible);
+        };
+
+        navItems.forEach(item => item.addEventListener('click', () => switchPage(item.dataset.page)));
+
+        const BTBridge = window.BTBridge;
+
+        const setupGlobalCallbacks = () => {
+            window.onConnectionStateChange = (isConnected, deviceName) => {
+                AppState.isBtConnected = isConnected;
+                const statusText = isConnected ? `已连接到 ${deviceName}` : '未连接';
+                globalBtStateText.textContent = statusText;
+                globalBtStateDot.className = `status-dot ${isConnected ? 'connected' : 'disconnected'}`;
+                showToast(isConnected ? '蓝牙连接成功！' : '蓝牙已断开');
+                LogPage.addLog({ type: 'system', content: statusText, description: `设备: ${deviceName || 'N/A'}` });
+                if (!isConnected) RelayPage.stopAllAutoCycles();
+            };
+            window.onError = (message) => {
+                showToast(`错误: ${message}`);
+                LogPage.addLog({ type: 'error', content: message, description: '发生错误' });
+            };
+            window.onData = (hexData) => {
+                LogPage.addLog({ type: 'received', content: hexData, description: '从设备接收' });
+                if (AppState.currentPage === 'page-relay-control') RelayPage.handleData(hexData);
+                else if (AppState.currentPage === 'page-command-debug') DebugPage.handleData(hexData);
+            };
+            window.onTimerUpdate = (base64Json, isBase64) => {
+                try {
+                    const jsonString = isBase64 ? atob(base64Json) : base64Json;
+                    const newTimers = JSON.parse(jsonString).reduce((acc, timer) => {
+                        acc[timer.id] = timer;
+                        return acc;
+                    }, {});
+                    RelayPage.updateAllTimerStatus(AppState.activeTimers, newTimers);
+                    AppState.activeTimers = newTimers;
+                } catch (e) {
+                    console.error("解析定时器更新失败:", e);
+                    LogPage.addLog({ type: 'error', content: e.message, description: '解析定时器失败' });
+                }
+            };
+            window.onPermissionRequired = (permissionType) => {
+                if (permissionType === 'exact-alarm') {
+                    permissionDialog.classList.add('show');
+                    permissionOverlay.classList.add('show');
+                }
+            };
+        };
+
+        const showToast = (message) => {
+            toastElement.textContent = message;
+            toastElement.style.bottom = `${(document.querySelector('.app-nav')?.offsetHeight || 64) + 16}px`;
+            setTimeout(() => { toastElement.style.bottom = '-100px'; }, 3000);
+        };
+
+        const showConfirmDialog = (message, onConfirm) => {
+            confirmMessage.textContent = message;
+            confirmActionBtn.onclick = () => {
+                onConfirm();
+                hideConfirmDialog();
+            };
+            confirmDialog.classList.add('show');
+            confirmOverlay.classList.add('show');
+        };
+
+        const hideConfirmDialog = () => {
+            confirmDialog.classList.remove('show');
+            confirmOverlay.classList.remove('show');
+        };
+        confirmCancelBtn.onclick = hideConfirmDialog;
+        confirmOverlay.addEventListener('click', hideConfirmDialog);
+
+
+        // --- Page Modules ---
+
+        const LogPage = (() => {
+            const logListEl = document.getElementById('logList');
+            const logTableEl = document.querySelector('.log-table');
+            const placeholderEl = document.getElementById('logPlaceholder');
+            let logs = [];
+
+            const renderLog = (log) => {
+                const row = document.createElement('tr');
+                row.className = 'log-row';
+                row.innerHTML = `
+                    <td class="log-timestamp">${log.timestamp.toLocaleTimeString('sv-SE')}.${String(log.timestamp.getMilliseconds()).padStart(3, '0')}</td>
+                    <td class="log-type"><span class="${log.type.toLowerCase()}">${log.type}</span></td>
+                    <td class="log-content">${formatHex(log.content)}</td>
+                    <td class="log-description">${log.description || 'N/A'}</td>
+                `;
+                logListEl.prepend(row); // Add new logs to the top
+            };
+
+            const formatHex = (hex) => {
+                if (!hex) return '-';
+                return hex.replace(/\s/g, '').match(/.{1,2}/g)?.join(' ').toUpperCase() || hex;
+            };
+
+            return {
+                init: () => {},
+                addLog: (logData) => {
+                    const newLog = {
+                        timestamp: new Date(),
+                        ...logData
+                    };
+                    logs.push(newLog);
+                    if (logs.length === 1) {
+                        placeholderEl.style.display = 'none';
+                        logTableEl.style.display = 'table';
+                    }
+                    renderLog(newLog);
+                },
+                showClearConfirm: () => {
+                    showConfirmDialog('确认要清除所有操作日志吗？此操作不可撤销。', () => {
+                        logs = [];
+                        logListEl.innerHTML = '';
+                        placeholderEl.style.display = 'block';
+                        logTableEl.style.display = 'none';
+                        showToast('操作日志已清除');
+                    });
+                }
+            };
+        })();
+
+        const RelayPage = (() => {
+            const relayList = document.getElementById('relayList');
+            const addRelayButton = document.getElementById('addRelayButton');
+            const editModal = document.getElementById('editModal');
+            const editRelayIndexInput = document.getElementById('editRelayIndex');
+            const editRelayNameInput = document.getElementById('editRelayName');
+            const editOnCommandInput = document.getElementById('editOnCommand');
+            const editOffCommandInput = document.getElementById('editOffCommand');
+            const normalActions = document.getElementById('normalActions');
+            const deleteConfirmActions = document.getElementById('deleteConfirmActions');
+            const saveEditButton = document.getElementById('saveEdit');
+            const cancelEditButton = document.getElementById('cancelEdit');
+            const deleteRelayIcon = document.getElementById('deleteRelayIcon');
+            const cancelDeleteButton = document.getElementById('cancelDelete');
+            const deleteConfirmButton = document.getElementById('deleteConfirmButton');
+
+            let relays = [];
+            let autoCycleIntervals = {};
+
+            const saveRelaysToStorage = () => localStorage.setItem('bluetoothRelays', JSON.stringify(relays));
+            const loadRelaysFromStorage = () => {
+                const storedRelays = localStorage.getItem('bluetoothRelays');
+                if (storedRelays) {
+                    try {
+                        const parsedRelays = JSON.parse(storedRelays);
+                        return Array.isArray(parsedRelays) && parsedRelays.length > 0 ? parsedRelays : getDefaultRelays();
+                    } catch { return getDefaultRelays(); }
+                }
+                return getDefaultRelays();
+            };
+            const getDefaultRelays = () => [{ name: '继电器 1', onCommand: 'A00101A2', offCommand: 'A00100A1', status: 'off' }];
+            const renderRelays = () => {
+                relayList.innerHTML = '';
+                relays.forEach((relay, index) => relayList.appendChild(createRelayCard(relay, index)));
+                bindAllRelayEvents();
+                updateAllTimerStatus(AppState.activeTimers, AppState.activeTimers); // 初始渲染
+            };
+            const createRelayCard = (relay, index) => {
+                const card = document.createElement('div');
+                card.className = 'relay-card';
+                card.dataset.index = index;
+                card.dataset.status = relay.status || 'off';
+                card.innerHTML = `
+                  <div class="relay-header">
+                    <span class="relay-title">${relay.name}</span>
+                    <div class="summary-icons">
+                      <div class="status-indicator"></div>
+                      <span class="material-symbols-outlined timer-indicator">timer</span>
+                      <button class="edit-btn" aria-label="编辑继电器"><span class="material-symbols-outlined">edit_note</span></button>
+                      <button class="expand-btn" aria-label="展开/收起"><span class="material-symbols-outlined">expand_more</span></button>
+                    </div>
+                  </div>
+                  <div class="relay-content">
+                    <div class="relay-switch ${relay.status === 'on' ? 'is-on' : 'is-off'}">
+                      <div class="slider"></div><button class="off-button">关闭</button><button class="on-button">开启</button>
+                    </div>
+                    <div class="card-extra-content">
+                      <div>
+                        <div class="auto-cycle-group">
+                          <div class="auto-cycle-header"><h3 class="colorful-subtitle">自动循环</h3><md-switch class="cycle-switch"></md-switch></div>
+                          <div class="auto-cycle-controls"><md-slider class="cycle-slider" min="1" max="20" value="1" step="1" labeled ticks></md-slider><span class="cycle-label">1 次/秒</span></div>
+                        </div>
+                        <div class="timed-task-group">
+                          <div class="timed-task-header"><h3 class="colorful-subtitle">定时任务</h3></div>
+                          <div class="timer-mode-switch mode-countdown">
+                              <div class="slider"></div><button data-type="countdown">倒计时</button><button data-type="scheduled">定时预约</button>
+                          </div>
+                          <div class="timer-input-area">
+                              <div class="countdown-section">
+                                  <div class="time-picker-container">
+                                      <div class="picker-wheel" id="minutes-wheel-${index}"></div><span class="picker-label">分</span>
+                                      <div class="picker-wheel" id="seconds-wheel-${index}"></div><span class="picker-label">秒</span>
+                                      <div class="time-picker-overlay"></div>
+                                  </div>
+                              </div>
+                              <div class="scheduled-section" style="display: none;">
+                                   <input type="time" class="scheduled-input" style="width: 100%; margin-bottom: 16px; border: 1px solid var(--color-outline); padding: 8px; border-radius: 8px;">
+                              </div>
+                          </div>
+                          <div class="timer-action-area">
+                              <div class="timer-action-prompt">到达设定时间后:</div>
+                              <label class="action-switch-label">关<md-switch class="timer-action-switch"></md-switch>开</label>
+                          </div>
+                          <div class="timer-controls"><md-filled-button class="set-timer-btn">设置任务</md-filled-button></div>
+                          <div class="timer-status-list"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>`;
+                return card;
+            };
+            function createPickerWheel(containerId, max) {
+                const container = document.getElementById(containerId);
+                if (!container) return;
+                container.innerHTML = '';
+                const list = document.createElement('ul');
+                list.className = 'picker-list';
+                const itemHeight = 40; const containerHeight = 120;
+                const centerOffset = (containerHeight / 2) - (itemHeight / 2);
+                for (let k = 0; k < 3; k++) { for (let i = 0; i <= max; i++) { const item = document.createElement('li'); item.className = 'picker-item'; item.textContent = i.toString().padStart(2, '0'); list.appendChild(item); } }
+                container.appendChild(list);
+                let startY = 0, currentY = 0, lastY = 0, velocity = 0, rafId; const friction = 0.95; const totalItemsInSet = max + 1;
+                const updatePosition = (y) => { currentY = y; list.style.transform = `translateY(${currentY}px)`; };
+                const initialIndexInList = totalItemsInSet; const initialY = -initialIndexInList * itemHeight + centerOffset;
+                updatePosition(initialY); lastY = initialY;
+                const snap = () => { let targetIndex = Math.round(-(currentY - centerOffset) / itemHeight); const value = targetIndex % totalItemsInSet; const teleportIndex = value + totalItemsInSet; currentY = -teleportIndex * itemHeight + centerOffset; list.style.transition = 'transform 0.2s var(--anim-curve)'; updatePosition(currentY); container.dataset.value = value; list.style.transition = 'none'; };
+                const animate = () => { if (Math.abs(velocity) < 0.1) { cancelAnimationFrame(rafId); snap(); return; } currentY += velocity; velocity *= friction; updatePosition(currentY); rafId = requestAnimationFrame(animate); };
+                container.addEventListener('touchstart', (e) => { cancelAnimationFrame(rafId); startY = e.touches[0].clientY; lastY = currentY; velocity = 0; list.style.transition = 'none'; }, { passive: false });
+                container.addEventListener('touchmove', (e) => { e.preventDefault(); const deltaY = e.touches[0].clientY - startY; const newY = lastY + deltaY; velocity = newY - currentY; updatePosition(newY); }, { passive: false });
+                container.addEventListener('touchend', () => { rafId = requestAnimationFrame(animate); }); container.dataset.value = 0;
+            }
+            const bindAllRelayEvents = () => {
+                document.querySelectorAll('#page-relay-control .relay-card').forEach(card => {
+                    const index = parseInt(card.dataset.index, 10);
+                    card.querySelector('.relay-header').addEventListener('click', (e) => { if (!e.target.closest('.edit-btn, .expand-btn, .timer-indicator')) card.classList.toggle('is-expanded'); });
+                    card.querySelector('.expand-btn').addEventListener('click', () => card.classList.toggle('is-expanded'));
+                    card.querySelector('.edit-btn').addEventListener('click', () => openEditModal(index));
+                    card.querySelector('.on-button').onclick = () => sendCommand(index, 'on');
+                    card.querySelector('.off-button').onclick = () => sendCommand(index, 'off');
+                    const cycleSwitch = card.querySelector('.cycle-switch');
+                    const cycleSlider = card.querySelector('.cycle-slider');
+                    const cycleLabel = card.querySelector('.cycle-label');
+                    cycleSwitch.addEventListener('change', () => cycleSwitch.selected ? startAutoCycle(index) : stopAutoCycle(index));
+                    cycleSlider.addEventListener('input', () => { cycleLabel.textContent = `${cycleSlider.value} 次/秒`; });
+                    const timerModeSwitch = card.querySelector('.timer-mode-switch');
+                    const countdownSection = card.querySelector('.countdown-section');
+                    const scheduledSection = card.querySelector('.scheduled-section');
+                    timerModeSwitch.querySelectorAll('button').forEach(btn => {
+                        btn.onclick = () => { const type = btn.dataset.type; timerModeSwitch.className = `timer-mode-switch mode-${type}`; countdownSection.style.display = type === 'countdown' ? 'block' : 'none'; scheduledSection.style.display = type === 'scheduled' ? 'block' : 'none'; };
+                    });
+                    createPickerWheel(`minutes-wheel-${index}`, 59);
+                    createPickerWheel(`seconds-wheel-${index}`, 59);
+                    card.querySelector('.set-timer-btn').onclick = () => setTimedTask(index);
+                });
+            };
+            function sendCommand(index, state) {
+                updateRelayStatusUI(index, state);
+                const relay = relays[index];
+                const command = state === 'on' ? relay.onCommand : relay.offCommand;
+                LogPage.addLog({
+                    type: 'Sent',
+                    content: command,
+                    description: `控制: ${relay.name} -> ${state === 'on' ? '开启' : '关闭'}`
+                });
+                BTBridge.sendData(command);
+            };
+            const updateRelayStatusUI = (index, status) => {
+                const card = document.querySelector(`.relay-card[data-index="${index}"]`);
+                if (card) {
+                    card.dataset.status = status;
+                    const switchEl = card.querySelector('.relay-switch');
+                    // This check is now only for preventing updates while the switch is meant to be disabled during auto-cycle
+                    if (!switchEl.classList.contains('disabled')) {
+                        switchEl.classList.toggle('is-on', status === 'on');
+                        switchEl.classList.toggle('is-off', status === 'off');
+                    }
+                    if (relays[index]) relays[index].status = status;
+                }
+            };
+            const openEditModal = (index) => { const relay = relays[index]; editRelayIndexInput.value = index; editRelayNameInput.value = relay.name; editOnCommandInput.value = relay.onCommand; editOffCommandInput.value = relay.offCommand; normalActions.style.display = 'flex'; deleteConfirmActions.style.display = 'none'; editModal.classList.add('show'); };
+            const closeEditModal = () => { editModal.classList.remove('show'); };
+            const saveEdit = () => { const index = parseInt(editRelayIndexInput.value, 10); const newName = editRelayNameInput.value.trim(); const newOnCommand = editOnCommandInput.value.trim().toUpperCase(); const newOffCommand = editOffCommandInput.value.trim().toUpperCase(); if (index >= 0 && newName && newOnCommand && newOffCommand) { relays[index] = { ...relays[index], name: newName, onCommand: newOnCommand, offCommand: newOffCommand }; saveRelaysToStorage(); renderRelays(); closeEditModal(); showToast('继电器已更新'); } else showToast('请填写所有字段'); };
+            const handleDeleteClick = () => { const index = parseInt(editRelayIndexInput.value, 10); if (index >= 0 && index < relays.length) { relays.splice(index, 1); saveRelaysToStorage(); renderRelays(); closeEditModal(); showToast('继电器已删除'); } };
+            const startAutoCycle = (index) => { stopAutoCycle(index, false); const card = document.querySelector(`.relay-card[data-index="${index}"]`); const cycleSlider = card.querySelector('.cycle-slider'); const relaySwitch = card.querySelector('.relay-switch'); const freq = cycleSlider.value; const interval = 1000 / freq; let isNextStateOn = relays[index].status !== 'on'; relaySwitch.classList.add('disabled'); cycleSlider.disabled = true; autoCycleIntervals[index] = setInterval(() => { sendCommand(index, isNextStateOn ? 'on' : 'off'); isNextStateOn = !isNextStateOn; }, interval); };
+
+            // [FIX] Corrected stopAutoCycle to prevent UI flicker
+            const stopAutoCycle = (index, showMsg = true) => {
+                if (autoCycleIntervals[index]) {
+                    clearInterval(autoCycleIntervals[index]);
+                    delete autoCycleIntervals[index];
+                    const card = document.querySelector(`.relay-card[data-index="${index}"]`);
+                    if (card) {
+                        const relaySwitch = card.querySelector('.relay-switch');
+                        const finalStatus = relays[index].status;
+
+                        // First, ensure the visual state classes are correct before re-enabling.
+                        relaySwitch.classList.toggle('is-on', finalStatus === 'on');
+                        relaySwitch.classList.toggle('is-off', finalStatus === 'off');
+
+                        // Then, re-enable all the controls.
+                        card.querySelector('.cycle-slider').disabled = false;
+                        card.querySelector('.cycle-switch').selected = false;
+                        relaySwitch.classList.remove('disabled');
+                    }
+                    if (showMsg) showToast(`继电器 ${index + 1} 自动循环已停止`);
+                }
+            };
+
+            const stopAllAutoCycles = () => { Object.keys(autoCycleIntervals).forEach(index => stopAutoCycle(parseInt(index), false)); };
+
+            function setTimedTask(index) {
+                BTBridge.checkExactAlarmPermission();
+                const card = document.querySelector(`.relay-card[data-index="${index}"]`);
+                const action = card.querySelector('.timer-action-switch').selected ? 'on' : 'off';
+                const command = action === 'on' ? relays[index].onCommand : relays[index].offCommand;
+                const taskId = `relay_${index}_${Date.now()}`;
+                let delayMs = 0;
+                const timerType = card.querySelector('.timer-mode-switch').classList.contains('mode-countdown') ? 'countdown' : 'scheduled';
+                if (timerType === 'countdown') {
+                    const minutes = parseInt(document.getElementById(`minutes-wheel-${index}`).dataset.value, 10) || 0;
+                    const seconds = parseInt(document.getElementById(`seconds-wheel-${index}`).dataset.value, 10) || 0;
+                    delayMs = (minutes * 60 + seconds) * 1000;
+                    if (delayMs <= 0) { showToast('请选择有效的倒计时时长'); return; }
+                } else {
+                    const timeStr = card.querySelector('.scheduled-input').value;
+                    if (!timeStr) { showToast('请选择一个有效的时间'); return; }
+                    const [hours, minutes] = timeStr.split(':');
+                    const targetTime = new Date();
+                    targetTime.setHours(hours, minutes, 0, 0);
+                    if (targetTime <= new Date()) targetTime.setDate(targetTime.getDate() + 1);
+                    delayMs = targetTime.getTime() - new Date().getTime();
+                }
+                BTBridge.setTimer(taskId, delayMs, command);
+                showToast('定时任务已发送至后台服务');
+            }
+
+            function cancelTimedTask(taskId) {
+                BTBridge.cancelTimer(taskId);
+            }
+
+            function updateAllTimerStatus(oldTimers, newTimers) {
+                Object.values(AppState.countdownIntervals).forEach(clearInterval);
+                AppState.countdownIntervals = {};
+                document.querySelectorAll('.timer-status-list').forEach(list => list.innerHTML = '');
+                document.querySelectorAll('.relay-card').forEach(card => card.classList.remove('timer-active'));
+
+                const newTimerIds = new Set(Object.keys(newTimers));
+                for (const oldId in oldTimers) {
+                    if (!newTimerIds.has(oldId)) {
+                        const finishedTask = oldTimers[oldId];
+                        const relayIndex = relays.findIndex(r => r.onCommand === finishedTask.command || r.offCommand === finishedTask.command);
+                        if (relayIndex !== -1) {
+                            const finalState = relays[relayIndex].onCommand === finishedTask.command ? 'on' : 'off';
+                            updateRelayStatusUI(relayIndex, finalState);
+                        }
+                    }
+                }
+
+                Object.values(newTimers).forEach(task => {
+                    const relayIndex = relays.findIndex(r => r.onCommand === task.command || r.offCommand === task.command);
+                    if (relayIndex === -1) return;
+                    const card = document.querySelector(`.relay-card[data-index="${relayIndex}"]`);
+                    if (!card) return;
+
+                    card.classList.add('timer-active');
+
+                    const statusListDiv = card.querySelector('.timer-status-list');
+                    const item = document.createElement('div');
+                    item.className = 'timer-status-item';
+                    item.dataset.taskId = task.id;
+
+                    const actionText = relays[relayIndex].onCommand === task.command ? '开启' : '关闭';
+                    const relayName = relays[relayIndex].name;
+
+                    const updateDisplay = () => {
+                        const remainingMs = task.triggerAt - Date.now();
+                        if (remainingMs < 0) {
+                            item.remove();
+                            clearInterval(AppState.countdownIntervals[task.id]);
+                            delete AppState.countdownIntervals[task.id];
+                            return;
+                        }
+                        const totalSeconds = Math.round(remainingMs / 1000);
+                        const minutes = Math.floor(totalSeconds / 60);
+                        const seconds = totalSeconds % 60;
+                        const statusText = `将在 ${minutes}分${seconds.toString().padStart(2, '0')}秒 后 ${actionText} "${relayName}"`;
+                        const span = item.querySelector('span');
+                        if(span) span.textContent = statusText;
+                    };
+
+                    item.innerHTML = `<span></span><md-text-button class="cancel-timer-btn">取消</md-text-button>`;
+                    item.querySelector('.cancel-timer-btn').onclick = () => cancelTimedTask(task.id);
+                    statusListDiv.appendChild(item);
+                    updateDisplay();
+                    AppState.countdownIntervals[task.id] = setInterval(updateDisplay, 1000);
+                });
+            }
+
+            return {
+                init: () => {
+                    relays = loadRelaysFromStorage();
+                    renderRelays();
+                    addRelayButton.onclick = () => { const relayNum = relays.length + 1; const onChecksum = (0xA0 + relayNum + 1).toString(16).toUpperCase(); const offChecksum = (0xA0 + relayNum + 0).toString(16).toUpperCase(); const relayNumHex = relayNum.toString(16).padStart(2, '0').toUpperCase(); relays.push({ name: `继电器 ${relayNum}`, onCommand: `A0${relayNumHex}01${onChecksum}`, offCommand: `A0${relayNumHex}00${offChecksum}`, status: 'off' }); saveRelaysToStorage(); renderRelays(); showToast('新继电器已添加'); };
+                    saveEditButton.onclick = saveEdit;
+                    cancelEditButton.onclick = closeEditModal;
+                    deleteRelayIcon.onclick = () => { normalActions.style.display = 'none'; deleteConfirmActions.style.display = 'flex'; };
+                    cancelDeleteButton.onclick = () => { normalActions.style.display = 'flex'; deleteConfirmActions.style.display = 'none'; };
+                    deleteConfirmButton.onclick = handleDeleteClick;
+                    editModal.onclick = (e) => { if (e.target === editModal) closeEditModal(); };
+                },
+                handleData: (hex) => {
+                    const upperHex = hex.toUpperCase().replace(/\s/g, '');
+                    for (let i = 0; i < relays.length; i++) {
+                        if (upperHex === relays[i].onCommand.toUpperCase().replace(/\s/g, '') && relays[i].status !== 'on') { updateRelayStatusUI(i, 'on'); return; }
+                        if (upperHex === relays[i].offCommand.toUpperCase().replace(/\s/g, '') && relays[i].status !== 'off') { updateRelayStatusUI(i, 'off'); return; }
+                    }
+                },
+                updateAllTimerStatus,
+                stopAllAutoCycles
+            };
+        })();
+
+        const DebugPage = (() => {
+            const messageList = document.getElementById('debugMessageList');
+            const commandInput = document.getElementById('commandInput');
+            const sendButton = document.getElementById('sendButton');
+            const statsButton = document.getElementById('statsButton');
+            const panelOverlay = document.getElementById('panelOverlay');
+            const statsPanel = document.getElementById('statsPanel');
+            const autoScrollToggle = document.getElementById('autoScrollToggle');
+            const sentSuccessCountEl = document.getElementById('sentSuccessCount');
+            const sentFailCountEl = document.getElementById('sentFailCount');
+            const receivedCountEl = document.getElementById('receivedCount');
+
+            let stats = { sentSuccess: 0, sentFail: 0, received: 0 };
+            let isAutoScrollEnabled = true;
+
+            const togglePanel = (show) => { panelOverlay.classList.toggle('show', show); statsPanel.classList.toggle('show', show); };
+            const updateStatsDisplay = () => { sentSuccessCountEl.textContent = stats.sentSuccess; sentFailCountEl.textContent = stats.sentFail; receivedCountEl.textContent = stats.received; };
+            const hexToString = (hex) => { let str = ''; const cleanHex = hex.replace(/\s/g, ''); if (cleanHex.length % 2 !== 0) { console.error("Invalid HEX string:", hex); return `[无效16进制: ${hex}]`; } try { for (let i = 0; i < cleanHex.length; i += 2) { str += String.fromCharCode(parseInt(cleanHex.substr(i, 2), 16)); } return str; } catch (e) { return `[转换错误: ${hex}]`; }};
+            const stringToHex = (str) => { return str.split('').map(c => c.charCodeAt(0).toString(16).padStart(2, '0')).join(''); };
+
+            const addMessage = (text, type, format) => {
+                const bubble = document.createElement('div');
+                bubble.className = `message-bubble ${type}`;
+                const content = document.createElement('div');
+
+                if (format === 'hex') {
+                    content.textContent = text.replace(/\s/g, '').match(/.{1,2}/g)?.join(' ').toUpperCase() || text;
+                } else {
+                    content.textContent = text;
+                }
+
+                const timestamp = document.createElement('div');
+                timestamp.className = 'timestamp';
+                const now = new Date();
+                timestamp.textContent = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}.${String(now.getMilliseconds()).padStart(3, '0')}`;
+                bubble.appendChild(content); bubble.appendChild(timestamp);
+
+                const wasScrolledToBottom = messageList.scrollHeight - messageList.clientHeight <= messageList.scrollTop + 1;
+                messageList.appendChild(bubble);
+                if (isAutoScrollEnabled && wasScrolledToBottom) messageList.scrollTop = messageList.scrollHeight;
+            };
+
+            const handleSend = () => {
+                let command = commandInput.value.trim();
+                if (!command) return;
+                const sendFormat = document.querySelector('input[name="sendFormat"]:checked').value;
+                let commandToSend = command;
+                let displayCommand = command;
+
+                if (sendFormat === 'text') {
+                    commandToSend = stringToHex(command);
+                } else { // hex
+                    // Validate hex before sending
+                    if (!/^[0-9a-fA-F\s]*$/.test(commandToSend)) {
+                        showToast("无效的hex格式");
+                        return;
+                    }
+                }
+
+                BTBridge.sendData(commandToSend);
+                addMessage(displayCommand, 'sent', sendFormat);
+                LogPage.addLog({ type: 'Sent', content: commandToSend, description: '调试发送' });
+
+                stats.sentSuccess++;
+                updateStatsDisplay();
+                commandInput.value = '';
+            };
+            return {
+                init: () => {
+                    sendButton.addEventListener('click', handleSend);
+                    commandInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); handleSend(); } });
+                    statsButton.addEventListener('click', () => togglePanel(true));
+                    panelOverlay.addEventListener('click', () => togglePanel(false));
+                    autoScrollToggle.addEventListener('change', (e) => { isAutoScrollEnabled = e.target.checked; });
+                },
+                handleData: (hexData) => {
+                    const receiveFormat = document.querySelector('input[name="receiveFormat"]:checked').value;
+                    let displayData = hexData;
+                    if (receiveFormat === 'text') { displayData = hexToString(hexData); }
+                    addMessage(displayData, 'received', receiveFormat);
+                    stats.received++;
+                    updateStatsDisplay();
+                },
+                showClearConfirm: () => {
+                    showConfirmDialog('确认要清除所有调试日志和统计数据吗？此操作不可撤销。', () => {
+                        messageList.innerHTML = '';
+                        stats = { sentSuccess: 0, sentFail: 0, received: 0 };
+                        updateStatsDisplay();
+                        showToast('调试日志和统计已清除');
+                    });
+                }
+            };
+        })();
+
+        // --- App Initialization ---
+        const initializeApp = () => {
+            LogPage.init();
+            RelayPage.init();
+            DebugPage.init();
+            setupGlobalCallbacks();
+
+            bluetoothFab.onclick = () => {
+                if (AppState.isBtConnected) {
+                    BTBridge.disconnect();
+                } else {
+                    BTBridge.connect();
+                }
+            };
+
+            const closePermissionDialog = () => {
+                permissionDialog.classList.remove('show');
+                permissionOverlay.classList.remove('show');
+            };
+            document.getElementById('cancelPermissionBtn').onclick = closePermissionDialog;
+            permissionOverlay.onclick = closePermissionDialog;
+            document.getElementById('grantPermissionBtn').onclick = () => {
+                BTBridge.requestExactAlarmPermission();
+                closePermissionDialog();
+            };
+
+            switchPage('page-relay-control');
+        };
+
+        initializeApp();
+    });
+</script>
+
+</body>
+</html>

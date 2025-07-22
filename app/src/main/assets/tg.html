@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>指令调试 - 最终整合版</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+    <style>
+        :root {
+            --padding-l: 24px;
+            --padding-m: 16px;
+            --padding-s: 8px;
+            --radius-l: 28px;
+            --radius-m: 16px;
+            --gap-m: 16px;
+            --gap-s: 8px;
+            --color-accent: #007BFF;
+            --color-on-accent: #FFFFFF;
+            --color-accent-container: #E6F2FF;
+            --color-surface-container-highest: #FFFFFF;
+            --color-surface-container-low: #F7F8FA;
+            --color-on-surface: #1a1c1e;
+            --color-on-surface-variant: #5a6470;
+            --color-outline: #dce1e7;
+            --color-background: #FDFDFD;
+            --color-success: #27ae60;
+            --color-error: #c0392b;
+            --color-inactive: #bdc3c7;
+            --color-sent-bg: var(--color-accent);
+            --color-sent-text: var(--color-on-accent);
+            --color-received-bg: var(--color-surface-container-low);
+            --color-received-text: var(--color-on-surface);
+            --header-height: 72px;
+            --footer-height: 84px;
+            --anim-duration: 0.4s;
+            --anim-curve: cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { height: 100%; font-family: 'Roboto', sans-serif; background-color: var(--color-background); color: var(--color-on-surface); overflow: hidden; }
+        .page-view { display: flex; flex-direction: column; height: 100%; }
+
+        /* 头部 */
+        .header-placeholder { display: flex; align-items: center; justify-content: space-between; padding: 0 var(--padding-m); height: var(--header-height); background-color: var(--color-surface-container-highest); border-bottom: 1px solid var(--color-outline); flex-shrink: 0; }
+        .header-title-group { display: flex; flex-direction: column; gap: 4px; }
+        .header-title-group .title { font-size: 22px; font-weight: 700; background: linear-gradient(45deg, #3498db, #8e44ad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .header-placeholder .clear-btn { display: flex; align-items: center; justify-content: center; background: none; border: none; cursor: pointer; color: var(--color-on-surface-variant); padding: var(--padding-s); border-radius: 50%; transition: background-color 0.3s, transform 0.2s; }
+        .header-placeholder .clear-btn:active { transform: scale(0.9); }
+
+        /* [修改] 统一状态区字体样式 */
+        .status-area { display: flex; align-items: center; gap: var(--gap-s); font-size: 12px; color: var(--color-on-surface-variant); }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; transition: background-color 0.5s; flex-shrink: 0; }
+        .status-dot.connected { background-color: var(--color-success); }
+        .status-dot.disconnected { background-color: var(--color-error); }
+        #btAddressText { margin-left: var(--gap-s); }
+
+        /* 消息列表 */
+        .message-list { flex-grow: 1; overflow-y: auto; padding: var(--padding-m); display: flex; flex-direction: column; gap: var(--gap-m); }
+        @keyframes slide-in-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .message-bubble { max-width: 85%; padding: 12px var(--padding-m); border-radius: var(--radius-m); font-family: 'Menlo', 'Courier New', Courier, monospace; font-size: 14px; word-wrap: break-word; box-shadow: 0 2px 8px rgba(0,0,0,0.05); animation: slide-in-up 0.5s var(--anim-curve); border: 1px solid transparent; }
+        .message-bubble .timestamp { display: block; font-size: 10px; margin-top: var(--gap-s); text-align: right; font-family: 'Roboto', sans-serif; opacity: 0.7; }
+        .message-bubble.sent { background-color: var(--color-sent-bg); color: var(--color-sent-text); align-self: flex-end; border-bottom-right-radius: 4px; }
+        .message-bubble.sent .timestamp { color: var(--color-sent-text); }
+        .message-bubble.received { background-color: var(--color-received-bg); color: var(--color-received-text); border-color: var(--color-outline); align-self: flex-start; border-bottom-left-radius: 4px; }
+        .message-bubble.received .timestamp { color: var(--color-on-surface-variant); }
+
+        /* 底部输入区 */
+        .input-footer { flex-shrink: 0; padding: var(--padding-m); background-color: var(--color-surface-container-highest); border-top: 1px solid var(--color-outline); box-shadow: 0 -4px 12px rgba(0,0,0,0.03); }
+        .input-row { display: flex; align-items: center; gap: var(--gap-s); }
+        .input-row .icon-btn { display: flex; align-items: center; justify-content: center; width: 52px; height: 52px; border-radius: 50%; border: 1px solid var(--color-outline); background-color: var(--color-surface-container-low); color: var(--color-on-surface-variant); cursor: pointer; flex-shrink: 0; transition: all 0.3s; }
+        .input-row .icon-btn:hover { border-color: var(--color-accent); color: var(--color-accent); }
+        .input-row .input-wrapper { flex-grow: 1; position: relative; }
+        .input-row .input-wrapper input { width: 100%; height: 52px; padding: 0 var(--padding-m); border: 1px solid var(--color-outline); border-radius: var(--radius-m); font-size: 16px; background-color: var(--color-surface-container-low); transition: border-color 0.3s, box-shadow 0.3s; }
+        .input-row .input-wrapper input:focus { outline: none; border-color: var(--color-accent); box-shadow: 0 0 0 3px var(--color-accent-container); }
+        .input-row .send-btn { background-color: var(--color-accent); color: var(--color-on-accent); border: none; box-shadow: 0 4px 8px rgba(0, 123, 255, 0.2); }
+
+        /* 仪表盘面板 */
+        .panel-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.4); z-index: 150; opacity: 0; pointer-events: none; transition: opacity 0.4s ease; }
+        .panel-overlay.show { opacity: 1; pointer-events: auto; }
+        #statsPanel { position: fixed; bottom: 0; left: 0; right: 0; background-color: var(--color-surface-container-highest); border-top-left-radius: var(--radius-m); border-top-right-radius: var(--radius-m); z-index: 200; padding: var(--padding-m) var(--padding-l) var(--padding-l); box-shadow: 0 -8px 24px rgba(0,0,0,0.1); transform: translateY(100%); transition: transform 0.4s var(--anim-curve); }
+        #statsPanel.show { transform: translateY(0); }
+        #statsPanel h3 { font-size: 18px; margin-bottom: var(--gap-m); text-align: center; }
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--gap-m); margin-bottom: var(--padding-l); }
+        .stat-item { text-align: center; }
+        .stat-item .value { font-size: 24px; font-weight: 700; }
+        .stat-item .label { font-size: 12px; color: var(--color-on-surface-variant); }
+        .stat-item .value.sent-success { color: var(--color-success); }
+        .stat-item .value.sent-fail { color: var(--color-error); }
+        .stat-item .value.received { color: var(--color-accent); }
+        .panel-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--gap-m); }
+        .panel-row .label { font-size: 14px; font-weight: 500; }
+        .switch { cursor: pointer; display: inline-block; position: relative; width: 38px; height: 22px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--color-inactive); border-radius: 22px; transition: .4s; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 2px; bottom: 2px; background-color: white; border-radius: 50%; transition: .4s; }
+        input:checked + .slider { background-color: var(--color-accent); }
+        input:checked + .slider:before { transform: translateX(16px); }
+        .format-toggle-group { display: flex; justify-content: space-between; align-items: flex-start; }
+        .toggle-container { display: flex; flex-direction: column; align-items: center; gap: var(--gap-s); }
+        .toggle-label { font-size: 11px; font-weight: 500; color: var(--color-on-surface-variant); }
+        .format-toggle { display: flex; align-items: center; background-color: var(--color-surface-container-low); padding: 4px; border-radius: var(--radius-l); position: relative; }
+        .format-toggle input[type="radio"] { display: none; }
+        .format-toggle label { padding: 6px 12px; font-size: 13px; font-weight: 500; color: var(--color-on-surface-variant); border-radius: var(--radius-l); cursor: pointer; position: relative; z-index: 2; transition: color 0.3s ease; }
+        .format-toggle input[type="radio"]:checked + label { color: var(--color-on-accent); }
+        .format-toggle .toggle-slider { position: absolute; top: 4px; bottom: 4px; width: calc(50% - 4px); background-color: var(--color-accent); border-radius: var(--radius-l); z-index: 1; transition: transform 0.4s var(--anim-curve); }
+        .format-toggle input[type="radio"][value="text"]:checked ~ .toggle-slider { transform: translateX(100%); }
+
+        /* 二次确认对话框 */
+        #confirmDialog { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.9); background-color: var(--color-surface-container-highest); border-radius: var(--radius-m); padding: var(--padding-l); z-index: 250; width: calc(100% - 48px); max-width: 320px; box-shadow: 0 8px 24px rgba(0,0,0,0.15); opacity: 0; pointer-events: none; transition: all 0.4s var(--anim-curve); }
+        #confirmDialog.show { opacity: 1; pointer-events: auto; transform: translate(-50%, -50%) scale(1); }
+        #confirmDialog p { margin: 0; margin-bottom: var(--gap-m); font-size: 14px; line-height: 1.5; }
+        .dialog-actions { display: flex; justify-content: flex-end; gap: var(--gap-s); }
+        .dialog-actions button { padding: 8px 16px; border-radius: var(--radius-l); border: none; font-weight: 500; cursor: pointer; transition: background-color 0.3s; }
+        #confirmCancel { background-color: transparent; color: var(--color-on-surface-variant); }
+        #confirmClear { background-color: var(--color-error); color: white; }
+
+    </style>
+</head>
+<body>
+
+<div id="command-view" class="page-view">
+    <header class="header-placeholder">
+        <div class="header-title-group">
+            <span class="title">指令调试</span>
+            <div class="status-area">
+                <div id="btStateDot" class="status-dot disconnected"></div>
+                <span id="btStateText">未连接</span>
+                <span id="btAddressText"></span>
+            </div>
+        </div>
+        <button class="clear-btn" id="clearLogButton" aria-label="清空日志与统计">
+            <span class="material-symbols-outlined">delete_sweep</span>
+        </button>
+    </header>
+
+    <main class="message-list" id="messageList"></main>
+
+    <footer class="input-footer">
+        <div class="input-row">
+            <button class="icon-btn" id="statsButton" aria-label="打开仪表盘">
+                <span class="material-symbols-outlined">keyboard_arrow_up</span>
+            </button>
+            <div class="input-wrapper">
+                <input type="text" id="commandInput" placeholder="输入指令...">
+            </div>
+            <button class="icon-btn send-btn" id="sendButton" aria-label="发送">
+                <span class="material-symbols-outlined">send</span>
+            </button>
+        </div>
+    </footer>
+</div>
+
+<!-- 仪表盘面板 -->
+<div class="panel-overlay" id="panelOverlay"></div>
+<div id="statsPanel">
+    <h3>仪表盘</h3>
+    <div class="stats-grid">
+        <div class="stat-item">
+            <div class="value sent-success" id="sentSuccessCount">0</div>
+            <div class="label">发送成功</div>
+        </div>
+        <div class="stat-item">
+            <div class="value sent-fail" id="sentFailCount">0</div>
+            <div class="label">发送失败</div>
+        </div>
+        <div class="stat-item">
+            <div class="value received" id="receivedCount">0</div>
+            <div class="label">已接收</div>
+        </div>
+    </div>
+    <div class="panel-row">
+        <div class="label">自动滚动</div>
+        <label class="switch">
+            <input type="checkbox" id="autoScrollToggle" checked>
+            <span class="slider"></span>
+        </label>
+    </div>
+    <hr style="border: none; border-top: 1px solid var(--color-outline); margin: var(--gap-m) 0;">
+    <div class="format-toggle-group">
+        <div class="toggle-container">
+            <div class="toggle-label">发送格式</div>
+            <div class="format-toggle" id="sendFormatToggle">
+                <input type="radio" name="sendFormat" value="hex" id="sendHex" checked>
+                <label for="sendHex">HEX</label>
+                <input type="radio" name="sendFormat" value="text" id="sendText">
+                <label for="sendText">文本</label>
+                <div class="toggle-slider"></div>
+            </div>
+        </div>
+        <div class="toggle-container">
+            <div class="toggle-label">接收格式</div>
+            <div class="format-toggle" id="receiveFormatToggle">
+                <input type="radio" name="receiveFormat" value="hex" id="receiveHex" checked>
+                <label for="receiveHex">HEX</label>
+                <input type="radio" name="receiveFormat" value="text" id="receiveText">
+                <label for="receiveText">文本</label>
+                <div class="toggle-slider"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 二次确认对话框 -->
+<div class="panel-overlay" id="confirmOverlay"></div>
+<div id="confirmDialog">
+    <p>确认要清除所有日志和统计数据吗？此操作不可撤销。</p>
+    <div class="dialog-actions">
+        <button id="confirmCancel">取消</button>
+        <button id="confirmClear">确认清除</button>
+    </div>
+</div>
+
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // DOM Elements
+        const messageList = document.getElementById('messageList');
+        const commandInput = document.getElementById('commandInput');
+        const sendButton = document.getElementById('sendButton');
+        const clearLogButton = document.getElementById('clearLogButton');
+        const statsButton = document.getElementById('statsButton');
+        const panelOverlay = document.getElementById('panelOverlay');
+        const statsPanel = document.getElementById('statsPanel');
+        const autoScrollToggle = document.getElementById('autoScrollToggle');
+        const sentSuccessCountEl = document.getElementById('sentSuccessCount');
+        const sentFailCountEl = document.getElementById('sentFailCount');
+        const receivedCountEl = document.getElementById('receivedCount');
+        const btStateDot = document.getElementById('btStateDot');
+        const btStateText = document.getElementById('btStateText');
+        const btAddressText = document.getElementById('btAddressText');
+        const confirmOverlay = document.getElementById('confirmOverlay');
+        const confirmDialog = document.getElementById('confirmDialog');
+        const confirmCancelBtn = document.getElementById('confirmCancel');
+        const confirmClearBtn = document.getElementById('confirmClear');
+
+        // State
+        let stats = { sentSuccess: 0, sentFail: 0, received: 0 };
+        let isAutoScrollEnabled = true;
+
+        // --- UI Functions ---
+        const togglePanel = (show) => {
+            panelOverlay.classList.toggle('show', show);
+            statsPanel.classList.toggle('show', show);
+        };
+
+        const toggleConfirmDialog = (show) => {
+            confirmOverlay.classList.toggle('show', show);
+            confirmDialog.classList.toggle('show', show);
+        };
+
+        const updateStatsDisplay = () => {
+            sentSuccessCountEl.textContent = stats.sentSuccess;
+            sentFailCountEl.textContent = stats.sentFail;
+            receivedCountEl.textContent = stats.received;
+        };
+
+        const addMessage = (text, type) => {
+            const bubble = document.createElement('div');
+            bubble.className = `message-bubble ${type}`;
+            const content = document.createElement('div');
+            if (/^[0-9A-Fa-f\s]+$/.test(text) && text.replace(/\s/g, '').length % 2 === 0) {
+                 content.textContent = text.replace(/\s/g, '').match(/.{1,2}/g).join(' ').toUpperCase();
+            } else {
+                 content.textContent = text;
+            }
+            const timestamp = document.createElement('div');
+            timestamp.className = 'timestamp';
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            const milliseconds = String(now.getMilliseconds()).padStart(3, '0');
+            timestamp.textContent = `${hours}:${minutes}:${seconds}.${milliseconds}`;
+            bubble.appendChild(content);
+            bubble.appendChild(timestamp);
+            messageList.appendChild(bubble);
+            if (isAutoScrollEnabled) {
+                messageList.scrollTop = messageList.scrollHeight;
+            }
+        };
+
+        // --- Event Handlers ---
+        const handleSend = () => {
+            const command = commandInput.value.trim();
+            if (!command) return;
+            addMessage(command, 'sent');
+            commandInput.value = '';
+            // --- Simulation Logic ---
+            const isSuccess = Math.random() > 0.2;
+            if (isSuccess) {
+                stats.sentSuccess++;
+                setTimeout(() => {
+                    const receiveFormat = document.querySelector('input[name="receiveFormat"]:checked').value;
+                    let responseHex = command.toUpperCase().replace(/\s/g, '') === 'A00101A2' ? 'A00101A2' : 'E00100E1';
+                    let displayResponse = responseHex;
+                    if (receiveFormat === 'text') {
+                        try { displayResponse = hexToString(responseHex); } catch (e) { displayResponse = "无效的HEX"; }
+                    }
+                    addMessage(displayResponse, 'received');
+                    stats.received++;
+                    updateStatsDisplay();
+                }, 500);
+            } else {
+                stats.sentFail++;
+            }
+            updateStatsDisplay();
+        };
+
+        const hexToString = (hex) => {
+            let str = '';
+            const cleanHex = hex.replace(/\s/g, '');
+            if (cleanHex.length % 2 !== 0) throw new Error("Invalid HEX");
+            for (let i = 0; i < cleanHex.length; i += 2) {
+                str += String.fromCharCode(parseInt(cleanHex.substr(i, 2), 16));
+            }
+            return str;
+        };
+
+        // --- Event Listeners ---
+        sendButton.addEventListener('click', handleSend);
+        commandInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); handleSend(); } });
+
+        // [修改] 清除按钮现在打开确认对话框
+        clearLogButton.addEventListener('click', () => {
+            toggleConfirmDialog(true);
+        });
+
+        statsButton.addEventListener('click', () => togglePanel(true));
+        panelOverlay.addEventListener('click', () => togglePanel(false));
+        autoScrollToggle.addEventListener('change', (e) => { isAutoScrollEnabled = e.target.checked; });
+
+        // 对话框按钮事件
+        confirmCancelBtn.addEventListener('click', () => toggleConfirmDialog(false));
+        confirmClearBtn.addEventListener('click', () => {
+            // [修改] 执行清除所有日志和统计
+            messageList.innerHTML = '';
+            stats = { sentSuccess: 0, sentFail: 0, received: 0 };
+            updateStatsDisplay();
+            toggleConfirmDialog(false);
+        });
+
+        // --- Global Functions for Android Communication ---
+        window.updateConnectionStatus = (status, address) => {
+            if (status === 'connected') {
+                btStateDot.className = 'status-dot connected';
+                btStateText.textContent = '已连接';
+                btAddressText.textContent = address || '';
+            } else {
+                btStateDot.className = 'status-dot disconnected';
+                btStateText.textContent = '未连接';
+                btAddressText.textContent = '';
+            }
+        };
+        window.onDataReceived = (hexData) => {
+            const receiveFormat = document.querySelector('input[name="receiveFormat"]:checked').value;
+            let displayData = hexData;
+            if (receiveFormat === 'text') {
+                try { displayData = hexToString(hexData); } catch (e) { displayData = "无效的HEX"; }
+            }
+            addMessage(displayData, 'received');
+            stats.received++;
+            updateStatsDisplay();
+        };
+        window.onSendResult = (isSuccess) => {
+            if (isSuccess) { stats.sentSuccess++; } else { stats.sentFail++; }
+            updateStatsDisplay();
+        };
+
+        // Initial state simulation
+        updateConnectionStatus('disconnected');
+        setTimeout(() => {
+            updateConnectionStatus('connected', '00:11:22:AA:BB:CC');
+            addMessage('A00101A2', 'sent');
+            window.onSendResult(true);
+            setTimeout(() => window.onDataReceived('A00101A2'), 300);
+        }, 2000);
+    });
+</script>
+
+</body>
+</html>

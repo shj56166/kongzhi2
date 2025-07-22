@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    This file is used by the Android operating system to control which parts of your app's data
+    can be extracted for backup or transfer. For more information, see:
+    https://developer.android.com/guide/topics/data/autobackup#IncludeExclude
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <!--
+            TODO: Back up the following files and directories.
+            By default, all files in the `files` and `database` directories are backed up.
+            To disable backup for specific files, add an <exclude> tag.
+            Example: <exclude domain="file" path="my_sensitive_file.txt"/>
+        -->
+        <include domain="sharedpref" path="."/>
+        <!-- Exclude the cache directory from backup -->
+        <exclude domain="file" path="cache"/>
+    </cloud-backup>
+    <device-transfer>
+        <!--
+            TODO: Transfer the following files and directories when moving to a new device.
+            By default, all files in the `files` and `database` directories are transferred.
+            To disable transfer for specific files, add an <exclude> tag.
+        -->
+        <include domain="sharedpref" path="."/>
+        <exclude domain="file" path="cache"/>
+    </device-transfer>
+</data-extraction-rules>
