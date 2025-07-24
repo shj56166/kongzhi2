@@ -149,6 +149,10 @@ class BluetoothService : Service() {
             broadcastError("此设备不支持蓝牙")
             return
         }
+        if (!bluetoothAdapter!!.isEnabled) {
+            broadcastError("请先打开蓝牙开关")
+            return
+        }
 
         // 获取已配对设备列表
         val pairedDevices: Set<BluetoothDevice>? = bluetoothAdapter?.bondedDevices

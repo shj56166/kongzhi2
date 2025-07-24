@@ -63,7 +63,7 @@ class MainActivity : AppCompatActivity() {
                     val state = intent.getIntExtra(BluetoothService.EXTRA_STATE, BluetoothService.STATE_DISCONNECTED)
                     val deviceName = intent.getStringExtra(BluetoothService.EXTRA_DEVICE_NAME) ?: "未连接"
                     Log.d("MainActivity", "Received state change: $state, Device: $deviceName")
-                    runJs("javascript:window.onConnectionStateChange(${state == BluetoothService.STATE_CONNECTED}, '$deviceName');")
+                    runJs("javascript:window.onConnectionStateChange($state, '$deviceName');")
                 }
                 BluetoothService.ACTION_DATA_RECEIVED -> {
                     val data = intent.getStringExtra(BluetoothService.EXTRA_DATA)
@@ -83,11 +83,11 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main) // 确保你有一个activity_main.xml布局文件
+        setContentView(R.layout.activity_main)
 
         setupPermissions()
         setupWebView()
-        startAndBindService()
+        // startAndBindService() // 此行已移除
         registerAppReceiver()
 
         checkAndRequestPermissions()
@@ -97,7 +97,8 @@ class MainActivity : AppCompatActivity() {
         requestPermissionsLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
             val allGranted = permissions.entries.all { it.value }
             if (allGranted) {
-                Log.d("MainActivity", "All required permissions granted.")
+                Log.d("MainActivity", "All required permissions granted. Starting service.")
+                // ✅ 在获取所有权限后，安全地启动并绑定服务
                 startAndBindService()
             } else {
                 Toast.makeText(this, "需要蓝牙和通知权限才能正常工作", Toast.LENGTH_LONG).show()
@@ -123,7 +124,7 @@ class MainActivity : AppCompatActivity() {
 
     @SuppressLint("SetJavaScriptEnabled", "JavascriptInterface")
     private fun setupWebView() {
-        webView = findViewById(R.id.webView) // 确保布局文件中有 <WebView android:id="@+id/webView" ... />
+        webView = findViewById(R.id.webView)
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
         webView.webViewClient = WebViewClient()
@@ -170,8 +171,6 @@ class MainActivity : AppCompatActivity() {
     inner class WebAppInterface {
         @JavascriptInterface
         fun connect() {
-            // [核心修复] 从连接上一个设备改为按名称查找并连接指定设备 "HCW"
-            // 这会告诉服务去扫描已配对列表，找到名为 "HCW" 的设备并连接
             bluetoothService?.findAndConnectDeviceByName("HCW")
         }
 

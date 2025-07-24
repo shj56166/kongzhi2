@@ -96,7 +96,7 @@
         #deleteConfirmButton { --md-filled-button-container-color: var(--color-error); --md-filled-button-label-text-color: #FFFFFF; flex-grow: 1; }
         #cancelDelete { --md-text-button-label-text-color: var(--color-on-surface-variant); }
         #page-command-debug { padding: 0; display: flex; flex-direction: column; overflow: hidden; }
-        #page-command-debug .message-list { flex-grow: 1; overflow-y: auto; padding: var(--padding-m); display: flex; flex-direction: column; gap: var(--gap-m); }
+        #page-command-debug .message-list { flex-grow: 1; overflow-y: auto; padding: var(--padding-m); display: flex; flex-direction: column; gap: var(--gap-m);padding-bottom: 84px; }
         @keyframes slide-in-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         #page-command-debug .message-bubble { max-width: 85%; padding: 12px var(--padding-m); border-radius: var(--radius-m); font-family: 'Menlo', 'Courier New', Courier, monospace; font-size: 14px; word-wrap: break-word; box-shadow: 0 2px 8px rgba(0,0,0,0.05); animation: slide-in-up 0.5s var(--anim-curve); border: 1px solid transparent; }
         #page-command-debug .message-bubble .timestamp { display: block; font-size: 10px; margin-top: var(--gap-s); text-align: right; font-family: 'Roboto', sans-serif; opacity: 0.7; }
@@ -104,7 +104,7 @@
         #page-command-debug .message-bubble.sent .timestamp { color: var(--color-on-accent); }
         #page-command-debug .message-bubble.received { background-color: var(--color-surface-container-low); color: var(--color-on-surface); border-color: var(--color-outline); align-self: flex-start; border-bottom-left-radius: 4px; }
         #page-command-debug .message-bubble.received .timestamp { color: var(--color-on-surface-variant); }
-        #page-command-debug .input-footer { flex-shrink: 0; padding: var(--padding-m); background-color: var(--color-surface-container-highest); box-shadow: 0 -4px 12px rgba(0,0,0,0.03); border-top-left-radius: var(--radius-m); border-top-right-radius: var(--radius-m); }
+        #page-command-debug .input-footer {position: absolute;bottom: 0;left: 0;right: 0;z-index: 10;transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);padding: var(--padding-m);background-color: var(--color-surface-container-highest);box-shadow: 0 -4px 12px rgba(0,0,0,0.03);border-top-left-radius: var(--radius-m);border-top-right-radius: var(--radius-m);}
         #page-command-debug .input-row { display: flex; align-items: center; gap: var(--gap-s); }
         #page-command-debug .input-row .icon-btn { display: flex; align-items: center; justify-content: center; width: 52px; height: 52px; border-radius: 50%; border: 1px solid var(--color-outline); background-color: var(--color-surface-container-low); color: var(--color-on-surface-variant); cursor: pointer; flex-shrink: 0; transition: all 0.3s; }
         #page-command-debug .input-row .icon-btn:hover { border-color: var(--color-accent); color: var(--color-accent); }
@@ -324,7 +324,7 @@
                 Gemini调试开发
             </span>
                 </p>
-                <p style="margin-top: 8px;"><strong>问题反馈：</strong> QQ 1570666721 / shj561661@outlook.com</p>
+                <p style="margin-top: 8px;"><strong>问题反馈：</strong> QQ 984388724 / shj561661@outlook.com</p>
                 <p style="margin-top: 8px;">16岁初中生于2025年7月用AI协作完成的第一个安卓项目。</p>
                 <p class="info-chip">版本: 1.0.0 (one)</p>
             </div>
@@ -668,14 +668,44 @@
         const BTBridge = window.BTBridge;
 
         const setupGlobalCallbacks = () => {
-            window.onConnectionStateChange = (isConnected, deviceName) => {
-                AppState.isBtConnected = isConnected;
-                const statusText = isConnected ? `已连接到 ${deviceName}` : '未连接';
+                window.onConnectionStateChange = (state, deviceName) => {
+                const STATE_DISCONNECTED = 0;
+                const STATE_CONNECTING = 1;
+                const STATE_CONNECTED = 2;
+
+                const wasConnected = AppState.isBtConnected; // 保存之前的连接状态
+                AppState.isBtConnected = (state === STATE_CONNECTED);
+
+                let statusText, dotClass;
+
+                switch (state) {
+                    case STATE_CONNECTED:
+                        statusText = `已连接到 ${deviceName}`;
+                        dotClass = 'connected';
+                        showToast('蓝牙连接成功！');
+                        break;
+                    case STATE_CONNECTING:
+                        statusText = '正在连接...';
+                        dotClass = 'disconnected'; // "连接中"状态可复用"未连接"的红色样式
+                        // 此处不弹窗，避免打扰
+                        break;
+                    case STATE_DISCONNECTED:
+                    default:
+                        statusText = '未连接';
+                        dotClass = 'disconnected';
+                        // 仅当之前是“已连接”状态时，才弹出“已断开”的提示
+                        if (wasConnected) {
+                            showToast('蓝牙已断开');
+                        }
+                        break;
+                }
+
                 globalBtStateText.textContent = statusText;
-                globalBtStateDot.className = `status-dot ${isConnected ? 'connected' : 'disconnected'}`;
-                showToast(isConnected ? '蓝牙连接成功！' : '蓝牙已断开');
+                globalBtStateDot.className = `status-dot ${dotClass}`;
+
+                // 保持原有的日志和状态同步逻辑
                 LogPage.addLog({ type: 'system', content: statusText, description: `设备: ${deviceName || 'N/A'}` });
-                if (!isConnected) RelayPage.stopAllAutoCycles();
+                if (!AppState.isBtConnected) RelayPage.stopAllAutoCycles();
             };
             window.onError = (message) => {
                 showToast(`错误: ${message}`);
@@ -1096,9 +1126,29 @@
             const sentSuccessCountEl = document.getElementById('sentSuccessCount');
             const sentFailCountEl = document.getElementById('sentFailCount');
             const receivedCountEl = document.getElementById('receivedCount');
+            const inputFooter = document.querySelector('#page-command-debug .input-footer');
 
             let stats = { sentSuccess: 0, sentFail: 0, received: 0 };
             let isAutoScrollEnabled = true;
+                // 监听虚拟视口变化，用于处理键盘升降
+            const initKeyboardWatcher = () => {
+                // 首先，动态设置消息列表的 padding-bottom，使其等于输入框的实际高度
+                const footerHeight = inputFooter.offsetHeight;
+                messageList.style.paddingBottom = `${footerHeight}px`;
+
+                // 检查浏览器是否支持 visualViewport API
+                if (window.visualViewport) {
+                    window.visualViewport.addEventListener('resize', () => {
+                        // 键盘高度 = 窗口总高度 - 可见视口高度
+                        const keyboardHeight = window.innerHeight - window.visualViewport.height;
+                        console.log(`[DEBUG] Viewport Resized! New height: ${window.visualViewport.height}`);
+
+                        // 使用 transform 将输入框向上平移键盘的高度
+                        // 当键盘收起时，keyboardHeight为0，输入框回到原位
+                        inputFooter.style.transform = `translateY(-${keyboardHeight}px)`;
+                    });
+                }
+            };
 
             const togglePanel = (show) => { panelOverlay.classList.toggle('show', show); statsPanel.classList.toggle('show', show); };
             const updateStatsDisplay = () => { sentSuccessCountEl.textContent = stats.sentSuccess; sentFailCountEl.textContent = stats.sentFail; receivedCountEl.textContent = stats.received; };
@@ -1159,6 +1209,7 @@
                     statsButton.addEventListener('click', () => togglePanel(true));
                     panelOverlay.addEventListener('click', () => togglePanel(false));
                     autoScrollToggle.addEventListener('change', (e) => { isAutoScrollEnabled = e.target.checked; });
+                    initKeyboardWatcher();
                 },
                 handleData: (hexData) => {
                     const receiveFormat = document.querySelector('input[name="receiveFormat"]:checked').value;
@@ -1207,6 +1258,11 @@
 
             switchPage('page-relay-control');
         };
+
+        // 所有JS模块初始化完毕后，通知原生代码“我已准备就绪”
+            if (window.BTBridge && typeof window.BTBridge.onJsReady === 'function') {
+                BTBridge.onJsReady();
+            }
 
         initializeApp();
     });
