@@ -14,7 +14,7 @@
             --padding-l: 24px; --padding-m: 16px; --padding-s: 8px; --radius-l: 28px; --radius-m: 16px; --gap-m: 16px; --gap-s: 8px; --color-accent: #007BFF; --color-on-accent: #FFFFFF; --color-accent-container: #E6F2FF; --color-on-accent-container: #0056B3; --color-surface-container-highest: #FFFFFF; --color-surface-container-low: #F7F8FA; --color-on-surface: #1a1c1e; --color-on-surface-variant: #5a6470; --color-outline: #dce1e7; --color-background: #FDFDFD; --color-success: #27ae60; --color-error: #c0392b; --color-inactive: #bdc3c7; --color-warning: #f39c12; --header-height: 72px; --nav-height: 64px; --anim-duration: 0.3s; --anim-curve: cubic-bezier(0.25, 0.8, 0.25, 1);
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        html, body { height: 100%; background-color: var(--color-background); color: var(--color-on-surface); font-family: 'Roboto', sans-serif; overflow: hidden; }
+        html, body { height: 100%; background-color: var(--color-background); color: var(--color-on-surface); font-family: 'Roboto', sans-serif; overflow: hidden;-webkit-tap-highlight-color: transparent; /* 移除移动端点击元素时的高亮背景 */ }
         .app-container { height: 100%; position: relative; }
         .app-header { position: fixed; top: 0; left: 0; right: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 var(--padding-m); height: calc(var(--header-height) + env(safe-area-inset-top, 0px)); padding-top: env(safe-area-inset-top, 0px); background-color: var(--color-surface-container-highest); border-bottom: 1px solid var(--color-outline); z-index: 100; }
         .header-title-group { display: flex; flex-direction: column; gap: 4px; }
@@ -148,13 +148,13 @@
         #confirmCancel { background-color: transparent; color: var(--color-on-surface-variant); }
         #confirmAction { background-color: var(--color-error); color: white; }
         #page-about .content-card { background-color: var(--color-surface-container-low); padding: var(--padding-m); border-radius: var(--radius-m); margin-bottom: var(--gap-m); }
-        #page-about h2 { font-size: 20px; color: var(--color-accent); margin-bottom: var(--gap-s); padding-bottom: var(--gap-s); border-bottom: 2px solid var(--color-accent-container); }
+        #page-about h2 {font-size: 20px;color: var(--color-accent);margin: 0; /* 清除所有外边距 */}
         #page-about h3 { font-size: 16px; margin-top: var(--gap-m); margin-bottom: var(--gap-s); color: var(--color-on-surface); }
         #page-about p, #page-about li { font-size: 14px; line-height: 1.6; color: var(--color-on-surface-variant); }
         #page-about ul, #page-about ol { padding-left: 20px; margin-top: var(--gap-s); }
         #page-about code { background-color: var(--color-outline); padding: 2px 6px; border-radius: 4px; font-family: 'Menlo', monospace; font-size: 13px; }
         #page-about .info-chip { display: inline-block; background-color: var(--color-accent-container); color: var(--color-on-accent-container); padding: 4px 10px; border-radius: var(--radius-l); font-weight: 500; margin-top: var(--gap-s); }
-        #page-about .material-symbols-outlined { font-size: 1.2em; vertical-align: bottom; line-height: 1; }
+        #page-about .material-symbols-outlined { font-size: 1.2em; vertical-align: middle; line-height: 1; }
         #bluetoothFab { position: fixed; bottom: calc(var(--nav-height) + var(--padding-m)); right: var(--padding-m); z-index: 20; --md-fab-container-color: var(--color-accent); --md-fab-icon-color: var(--color-on-accent); transition: transform 0.3s var(--anim-curve), opacity 0.3s var(--anim-curve); }
         #bluetoothFab.hidden { transform: scale(0); opacity: 0; }
         #toast { position: fixed; bottom: -100px; left: 50%; transform: translateX(-50%); background-color: #333; color: #fff; padding: var(--padding-s) var(--padding-m); border-radius: var(--radius-l); font-size: 14px; z-index: 300; transition: bottom 0.5s ease; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
@@ -239,12 +239,29 @@
     border-radius: var(--radius-m); border: 1px solid var(--color-outline);
     object-fit: contain;
 }
-/* 当radio被选中时，通过兄弟选择器~来显示对应的图片 */
-#page-about #wx-radio:checked ~ .qr-image-container #wx-qr,
-#page-about #zfb-radio:checked ~ .qr-image-container #zfb-qr {
-    display: inline-block; /* 显示对应的图片 */
-}
+
 /* --- 全新弹窗样式 结束 --- */
+        /* [新增代码] 修复“关于”页面中标题和图标不在同一行的问题 */
+        #page-about .about-header {
+            display: flex;
+            align-items: center;
+            gap: var(--gap-s, 8px);
+            margin-bottom: var(--gap-m);
+            padding-bottom: var(--gap-s);
+            border-bottom: 2px solid var(--color-accent-container);
+        }
+
+        /* [新增代码] 优化“核心功能详解”列表的样式 */
+        #page-about .feature-list {
+            display: flex;
+            flex-direction: column;
+            gap: var(--gap-m);
+        }
+        #page-about .feature-item {
+            display: flex;
+            align-items: flex-start;
+            gap: var(--padding-m);
+        }
     </style>
 </head>
 <body>
@@ -326,7 +343,45 @@
                 </p>
                 <p style="margin-top: 8px;"><strong>问题反馈：</strong> QQ 984388724 / shj561661@outlook.com</p>
                 <p style="margin-top: 8px;">16岁初中生于2025年7月用AI协作完成的第一个安卓项目。</p>
-                <p class="info-chip">版本: 1.0.0 (one)</p>
+                <p class="info-chip">版本: 1.1.0 (one)</p>
+            </div>
+
+            <div class="content-card">
+                <div class="about-header">
+                    <span class="material-symbols-outlined icon">rocket_launch</span>
+                    <h2>使用说明</h2>
+                </div>
+                <h3>连接设备</h3>
+                <ol>
+                    <li>打开 App，点击右下角蓝牙悬浮按钮。</li>
+                    <li>自动连接名为&nbsp;<code>HCW</code>&nbsp;的已配对设备。</li>
+                    <li>顶部状态指示灯变绿表示连接成功。</li>
+                </ol>
+
+                <h3>主控界面</h3>
+                <ul>
+                    <li><strong>添加设备：</strong>点击底部“添加继电器”按钮。</li>
+                    <li><strong>编辑设备：</strong>点击卡片右上角编辑图标，修改名称、指令等。</li>
+                    <li><strong>手动控制：</strong>点击“开启”或“关闭”按钮发送指令。</li>
+                    <li><strong>展开高级功能：</strong>点击卡片右上角展开图标，进入定时/自动循环设置。</li>
+                </ul>
+
+                <h3>设置定时任务</h3>
+                <ul>
+                    <li>点击卡片高级设置 > 定时任务模块。</li>
+                    <li>选择“倒计时”或“定时预约”。</li>
+                    <li>设置时间与目标动作（开启/关闭）。</li>
+                    <li>点击“设置任务”启动；任务即使退出 App 后仍有效。</li>
+                    <li>可在卡片下方随时取消任务。</li>
+                </ul>
+
+                <h3>使用指令调试</h3>
+                <ul>
+                    <li>切换到“调试”页面。</li>
+                    <li>输入 HEX 或文本指令，点击发送。</li>
+                    <li>左下角可切换收发格式。</li>
+                    <li>实时显示收发数据，带时间戳标记。</li>
+                </ul>
             </div>
 
             <div class="content-card">
@@ -411,7 +466,7 @@
                 </div>
                 <p>如果这个项目对您有帮助，欢迎通过以下方式支持我。您的鼓励是我持续更新和创作的动力！</p>
                 <div class="support-links" style="display: flex; gap: 16px; margin-top: 16px;">
-                    <a href="https://github.com/example" target="_blank" style="flex: 1; text-decoration: none; padding: 12px; border-radius: 12px; background-color: #333; color: white; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 500;">
+                    <a href="https://github.com/shj56166/kongzhi2" target="_blank" style="flex: 1; text-decoration: none; padding: 12px; border-radius: 12px; background-color: #333; color: white; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 500;">
                         <svg class="icon" viewBox="0 0 16 16" fill="currentColor" height="1em" width="1em"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path></svg>
                         <span>GitHub</span>
                     </a>
@@ -435,8 +490,8 @@
                     </div>
 
                     <div class="qr-image-container">
-                        <img id="wx-qr" class="qr-image" src=" " alt="微信支付二维码">
-                        <img id="zfb-qr" class="qr-image" src=" " alt="支付宝二维码">
+                        <img id="wx-qr" class="qr-image" src="file:///android_asset/images/wx.png" alt="微信支付二维码">
+                        <img id="zfb-qr" class="qr-image" src="file:///android_asset/images/zfb.jpg" alt="支付宝二维码">
                     </div>
                 </div>
             </div>
@@ -1034,26 +1089,36 @@
             }
 
             function updateAllTimerStatus(oldTimers, newTimers) {
+                // 1. 清理旧的计时器状态
                 Object.values(AppState.countdownIntervals).forEach(clearInterval);
                 AppState.countdownIntervals = {};
                 document.querySelectorAll('.timer-status-list').forEach(list => list.innerHTML = '');
                 document.querySelectorAll('.relay-card').forEach(card => card.classList.remove('timer-active'));
 
+                // 2. [核心修复] 判断消失的定时器是“执行完毕”还是“被取消”
                 const newTimerIds = new Set(Object.keys(newTimers));
                 for (const oldId in oldTimers) {
+                    // 如果一个旧的定时任务在新的列表里消失了...
                     if (!newTimerIds.has(oldId)) {
                         const finishedTask = oldTimers[oldId];
                         const relayIndex = relays.findIndex(r => r.onCommand === finishedTask.command || r.offCommand === finishedTask.command);
+
                         if (relayIndex !== -1) {
-                            const finalState = relays[relayIndex].onCommand === finishedTask.command ? 'on' : 'off';
-                            updateRelayStatusUI(relayIndex, finalState);
+                            // 关键判断：仅当任务是“到点执行”而不是“提前取消”时，才更新UI
+                            // 我们通过判断当前时间是否已经超过了任务的预定触发时间来实现
+                            if (Date.now() >= finishedTask.triggerAt - 100) { // 增加0.1秒的容错
+                                const finalState = relays[relayIndex].onCommand === finishedTask.command ? 'on' : 'off';
+                                updateRelayStatusUI(relayIndex, finalState);
+                            }
                         }
                     }
                 }
 
+                // 3. 遍历当前所有有效的定时任务，并渲染UI
                 Object.values(newTimers).forEach(task => {
                     const relayIndex = relays.findIndex(r => r.onCommand === task.command || r.offCommand === task.command);
                     if (relayIndex === -1) return;
+
                     const card = document.querySelector(`.relay-card[data-index="${relayIndex}"]`);
                     if (!card) return;
 
@@ -1067,6 +1132,7 @@
                     const actionText = relays[relayIndex].onCommand === task.command ? '开启' : '关闭';
                     const relayName = relays[relayIndex].name;
 
+                    // 用于更新倒计时文本的函数
                     const updateDisplay = () => {
                         const remainingMs = task.triggerAt - Date.now();
                         if (remainingMs < 0) {
@@ -1079,6 +1145,7 @@
                         const minutes = Math.floor(totalSeconds / 60);
                         const seconds = totalSeconds % 60;
                         const statusText = `将在 ${minutes}分${seconds.toString().padStart(2, '0')}秒 后 ${actionText} "${relayName}"`;
+
                         const span = item.querySelector('span');
                         if(span) span.textContent = statusText;
                     };
@@ -1086,6 +1153,8 @@
                     item.innerHTML = `<span></span><md-text-button class="cancel-timer-btn">取消</md-text-button>`;
                     item.querySelector('.cancel-timer-btn').onclick = () => cancelTimedTask(task.id);
                     statusListDiv.appendChild(item);
+
+                    // 立即更新一次，并设置每秒更新
                     updateDisplay();
                     AppState.countdownIntervals[task.id] = setInterval(updateDisplay, 1000);
                 });
@@ -1095,6 +1164,14 @@
                 init: () => {
                     relays = loadRelaysFromStorage();
                     renderRelays();
+                    const hasLaunched = localStorage.getItem('hasLaunchedBefore');
+                    if (!hasLaunched) {
+                        localStorage.setItem('hasLaunchedBefore', 'true');
+                        const firstCard = relayList.querySelector('.relay-card');
+                        if (firstCard) {
+                            firstCard.classList.add('is-expanded');
+                        }
+                    }
                     addRelayButton.onclick = () => { const relayNum = relays.length + 1; const onChecksum = (0xA0 + relayNum + 1).toString(16).toUpperCase(); const offChecksum = (0xA0 + relayNum + 0).toString(16).toUpperCase(); const relayNumHex = relayNum.toString(16).padStart(2, '0').toUpperCase(); relays.push({ name: `继电器 ${relayNum}`, onCommand: `A0${relayNumHex}01${onChecksum}`, offCommand: `A0${relayNumHex}00${offChecksum}`, status: 'off' }); saveRelaysToStorage(); renderRelays(); showToast('新继电器已添加'); };
                     saveEditButton.onclick = saveEdit;
                     cancelEditButton.onclick = closeEditModal;
@@ -1230,12 +1307,33 @@
             };
         })();
 
+        const setupPaymentModal = () => {
+        const wxRadio = document.getElementById('wx-radio');
+        const zfbRadio = document.getElementById('zfb-radio');
+        const wxImage = document.getElementById('wx-qr');
+        const zfbImage = document.getElementById('zfb-qr');
+
+        const updateQRVisibility = () => {
+            // 根据哪个单选框被选中，来决定显示哪张图片
+            wxImage.style.display = wxRadio.checked ? 'block' : 'none';
+            zfbImage.style.display = zfbRadio.checked ? 'block' : 'none';
+        };
+
+        // 为两个单选框添加事件监听，当选择变化时，更新图片可见性
+        wxRadio.addEventListener('change', updateQRVisibility);
+        zfbRadio.addEventListener('change', updateQRVisibility);
+
+        // 初始化时立即执行一次，以保证默认选中的微信二维码能显示出来
+        updateQRVisibility();
+        };
+
         // --- App Initialization ---
         const initializeApp = () => {
             LogPage.init();
             RelayPage.init();
             DebugPage.init();
             setupGlobalCallbacks();
+            setupPaymentModal();
 
             bluetoothFab.onclick = () => {
                 if (AppState.isBtConnected) {

@@ -17,7 +17,9 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Binder
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.os.PowerManager
 import android.util.Log
 import androidx.core.app.ActivityCompat
@@ -47,6 +49,22 @@ class BluetoothService : Service() {
     private val gson = Gson()
     private lateinit var alarmManager: AlarmManager
     private var wakeLock: PowerManager.WakeLock? = null
+
+    // [修改点 1] 新增用于定时更新通知的 Handler 和 Runnable
+    private val notificationUpdateHandler = Handler(Looper.getMainLooper())
+    private var isNotificationUpdaterRunning = false
+    private val notificationUpdater = object : Runnable {
+        override fun run() {
+            // 只有当存在活动的定时器时才继续更新
+            if (activeTimers.isNotEmpty()) {
+                updateNotification() // 刷新通知
+                notificationUpdateHandler.postDelayed(this, 1000) // 1秒后再次执行
+            } else {
+                // 如果没有任务了，就停止更新循环
+                isNotificationUpdaterRunning = false
+            }
+        }
+    }
 
 
     companion object {
@@ -111,6 +129,10 @@ class BluetoothService : Service() {
             activeTimers.remove(taskId)
             saveTimersToPrefs()
             broadcastTimerUpdate()
+            // [修改点 2] 任务执行后，检查是否需要停止通知更新器
+            if (activeTimers.isEmpty()) {
+                stopNotificationUpdater()
+            }
         }
 
         if (connectionState == STATE_CONNECTED) {
@@ -288,6 +310,7 @@ class BluetoothService : Service() {
             saveTimersToPrefs()
         }
         broadcastTimerUpdate()
+        startNotificationUpdater() // [修改点 3] 设置任务后，启动通知更新器
         Log.d("BluetoothService", "Timer set for task $taskId, command: $command")
     }
 
@@ -308,6 +331,11 @@ class BluetoothService : Service() {
                 saveTimersToPrefs()
                 Log.d("BluetoothService", "Timer canceled for task $taskId")
                 broadcastTimerUpdate()
+
+                // [修改点 4] 取消任务后，检查是否需要停止通知更新器
+                if (activeTimers.isEmpty()) {
+                    stopNotificationUpdater()
+                }
             } else {
                 Log.w("BluetoothService", "Attempted to cancel a non-existent timer task: $taskId")
             }
@@ -338,6 +366,8 @@ class BluetoothService : Service() {
             activeTimers.clear()
             activeTimers.putAll(loadedTimers)
             Log.d("BluetoothService", "Loaded ${activeTimers.size} timers from prefs.")
+            // [修改点 5] 加载状态后，如果存在任务，启动通知更新器
+            startNotificationUpdater()
         }
         lastDeviceAddress = prefs.getString(PREFS_KEY_LAST_DEVICE, null)
         Log.d("BluetoothService", "Loaded last device address: $lastDeviceAddress")
@@ -431,13 +461,19 @@ class BluetoothService : Service() {
         return binder
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        stopNotificationUpdater() // [修改点 6] 服务销毁时，确保停止更新器
+    }
+
     // 通知栏相关
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val serviceChannel = NotificationChannel(
                 NOTIFICATION_CHANNEL_ID,
                 "蓝牙连接服务",
-                NotificationManager.IMPORTANCE_DEFAULT
+                // [修改点 7] 将通知重要性降级，实现无声通知
+                NotificationManager.IMPORTANCE_LOW
             )
             val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(serviceChannel)
@@ -456,6 +492,7 @@ class BluetoothService : Service() {
             .setContentText(text)
             .setSmallIcon(R.drawable.ic_launcher_foreground) // 确保你有这个 drawable
             .setContentIntent(pendingIntent)
+            .setOnlyAlertOnce(true) // 仅在首次显示时打扰用户
             .build()
     }
 
@@ -493,13 +530,35 @@ class BluetoothService : Service() {
             val minutes = TimeUnit.MILLISECONDS.toMinutes(remainingMs) % 60
             val seconds = TimeUnit.MILLISECONDS.toSeconds(remainingMs) % 60
             val timeString = when {
-                hours > 0 -> String.format("%d小时%d分后", hours, minutes)
-                minutes > 0 -> String.format("%d分%d秒后", minutes, seconds)
-                else -> String.format("%d秒后", seconds)
+                hours > 0 -> String.format("%d小时%d分后执行", hours, minutes)
+                minutes > 0 -> String.format("%d分%d秒后执行", minutes, seconds)
+                else -> String.format("%d秒后执行", seconds)
             }
             "下一个任务: $timeString"
         } else {
             "任务即将执行..."
+        }
+    }
+
+    // [修改点 8] 新增启动通知更新器的方法
+    private fun startNotificationUpdater() {
+        // 如果更新器未运行且有任务，则启动它
+        if (!isNotificationUpdaterRunning && activeTimers.isNotEmpty()) {
+            isNotificationUpdaterRunning = true
+            // 立即开始，然后每秒重复
+            notificationUpdateHandler.post(notificationUpdater)
+            Log.d("BluetoothService", "Notification updater started.")
+        }
+    }
+
+    // [修改点 9] 新增停止通知更新器的方法
+    private fun stopNotificationUpdater() {
+        if (isNotificationUpdaterRunning) {
+            isNotificationUpdaterRunning = false
+            notificationUpdateHandler.removeCallbacks(notificationUpdater)
+            Log.d("BluetoothService", "Notification updater stopped.")
+            // 停止后，最后更新一次通知，以显示最终状态（如 "没有任务"）
+            updateNotification()
         }
     }
 
