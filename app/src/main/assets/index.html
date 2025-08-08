@@ -186,61 +186,144 @@
         .log-placeholder { text-align: center; margin-top: 48px; color: var(--color-on-surface-variant); }
         .log-placeholder .material-symbols-outlined { font-size: 48px; margin-bottom: var(--gap-s); }
         /* --- 全新弹窗样式 开始 --- */
-#page-about .payment-modal-overlay {
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 200;
-    display: flex; align-items: center; justify-content: center;
-    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
-    background-color: rgba(255, 255, 255, 0.1);
-    opacity: 0; pointer-events: none;
-    transition: opacity 0.3s ease-in-out;
-}
-/* 使用 :target 伪类来控制显示，无需JS */
-#page-about .payment-modal-overlay:target {
-    opacity: 1; pointer-events: auto;
-}
-#page-about .payment-modal-content {
-    background: var(--color-surface-container-highest);
-    padding: 24px; border-radius: var(--radius-l, 28px);
-    width: calc(100% - 32px); max-width: 400px;
-    box-shadow: 0 8px 16px rgba(0,0,0,0.1);
-    transform: scale(0.9);
-    transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-}
-#page-about .payment-modal-overlay:target .payment-modal-content {
-    transform: scale(1);
-}
-/* 纯CSS切换按钮的实现 */
-#page-about .payment-toggle {
-    display: flex; background-color: var(--color-surface-container-low);
-    border-radius: var(--radius-m); padding: 4px; margin-bottom: 20px;
-}
-/* 隐藏真正的radio按钮 */
-#page-about .payment-toggle input[type="radio"] {
-    display: none;
-}
-/* 将label标签作为可见的按钮 */
-#page-about .payment-toggle label {
-    flex: 1; padding: 8px; border: none; background-color: transparent;
-    border-radius: 12px; font-size: 14px; font-weight: 500;
-    color: var(--color-on-surface-variant); cursor: pointer;
-    transition: all 0.3s ease; text-align: center;
-}
-/* 当radio按钮被选中时，它后面的兄弟label标签改变样式 */
-#page-about .payment-toggle input[type="radio"]:checked + label {
-    background-color: var(--color-accent); color: var(--color-on-accent);
-    box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
-}
-/* 图片容器和图片样式 */
-#page-about .qr-image-container { text-align: center; }
-#page-about .qr-image {
-    display: none; /* 默认所有图片都隐藏 */
-    width: 210px;  /* 修正后的宽度 */
-    height: 280px; /* 修正后的高度，实现4:3高:宽比 */
-    border-radius: var(--radius-m); border: 1px solid var(--color-outline);
-    object-fit: contain;
-}
+        #page-about .payment-modal-overlay {
+          position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 200;
+          display: flex; align-items: center; justify-content: center;
+          -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+          background-color: rgba(255, 255, 255, 0.1);
+          opacity: 0; pointer-events: none;
+          transition: opacity 0.3s ease-in-out;
+        }
+      /* 使用 :target 伪类来控制显示，无需JS */
+      #page-about .payment-modal-overlay:target {
+          opacity: 1; pointer-events: auto;
+      }
+      #page-about .payment-modal-content {
+          background: var(--color-surface-container-highest);
+          padding: 24px; border-radius: var(--radius-l, 28px);
+          width: calc(100% - 32px); max-width: 400px;
+          box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+          transform: scale(0.9);
+          transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+      }
+      #page-about .payment-modal-overlay:target .payment-modal-content {
+          transform: scale(1);
+      }
+      /* 纯CSS切换按钮的实现 */
+      #page-about .payment-toggle {
+          display: flex; background-color: var(--color-surface-container-low);
+          border-radius: var(--radius-m); padding: 4px; margin-bottom: 20px;
+      }
+      /* 隐藏真正的radio按钮 */
+      #page-about .payment-toggle input[type="radio"] {
+          display: none;
+      }
+      /* 将label标签作为可见的按钮 */
+      #page-about .payment-toggle label {
+          flex: 1; padding: 8px; border: none; background-color: transparent;
+          border-radius: 12px; font-size: 14px; font-weight: 500;
+          color: var(--color-on-surface-variant); cursor: pointer;
+          transition: all 0.3s ease; text-align: center;
+      }
+      /* 当radio按钮被选中时，它后面的兄弟label标签改变样式 */
+      #page-about .payment-toggle input[type="radio"]:checked + label {
+          background-color: var(--color-accent); color: var(--color-on-accent);
+          box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
+      }
+      /* 图片容器和图片样式 */
+      #page-about .qr-image-container { text-align: center; }
+      #page-about .qr-image {
+          display: none; /* 默认所有图片都隐藏 */
+          width: 210px;  /* 修正后的宽度 */
+          height: 280px; /* 修正后的高度，实现4:3高:宽比 */
+          border-radius: var(--radius-m); border: 1px solid var(--color-outline);
+          object-fit: contain;
+      }
+      /* --- 全新弹窗样式 结束 --- */
 
-/* --- 全新弹窗样式 结束 --- */
+      /* --- 扫描弹窗样式 --- */
+        #scanDialog {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; align-items: center; justify-content: center;
+            z-index: 200; opacity: 0; pointer-events: none;
+            transition: opacity var(--anim-duration) ease-in-out;
+            -webkit-backdrop-filter: blur(8px);
+            backdrop-filter: blur(8px);
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        #scanDialog.show { opacity: 1; pointer-events: auto; }
+
+        .scan-dialog-content {
+            background: var(--color-surface-container-highest);
+            padding: var(--padding-l);
+            border-radius: var(--radius-l);
+            width: calc(100% - 32px);
+            max-width: 400px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+            transform: scale(0.95);
+            transition: transform var(--anim-duration) var(--anim-curve);
+        }
+        #scanDialog.show .scan-dialog-content { transform: scale(1); }
+
+        .scan-dialog-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--gap-m);
+        }
+        .scan-dialog-header h2 { margin: 0; font-size: 22px; }
+        .scan-dialog-header .close-btn {
+            background: none; border: none; cursor: pointer;
+            color: var(--color-on-surface-variant);
+            padding: var(--padding-s); border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        #deviceScanList {
+            list-style: none; padding: 0; margin: 0;
+            max-height: 300px;
+            overflow-y: auto;
+            border-top: 1px solid var(--color-outline);
+            border-bottom: 1px solid var(--color-outline);
+        }
+
+        .device-item {
+            display: flex; align-items: center; gap: var(--gap-m);
+            padding: var(--padding-m); cursor: pointer;
+            border-bottom: 1px solid var(--color-outline);
+            transition: background-color 0.2s;
+        }
+        .device-item:last-child { border-bottom: none; }
+        .device-item:not(.is-connected):hover { background-color: var(--color-surface-container-low); }
+
+        .device-info { flex-grow: 1; }
+        .device-name { font-weight: 500; }
+        .device-address { font-size: 12px; color: var(--color-on-surface-variant); }
+
+        .device-status-badge {
+            font-size: 10px; font-weight: 500;
+            color: var(--color-on-accent);
+            padding: 2px 6px;
+            border-radius: var(--radius-s);
+            margin-left: var(--gap-s);
+        }
+        .device-status-badge.recent { background-color: var(--color-accent); }
+        .device-status-badge.connected { background-color: var(--color-success); }
+
+        .device-item.recent-device-0 { background-color: var(--color-recent-1); }
+        .device-item.recent-device-1 { background-color: var(--color-recent-2); }
+        .device-item.recent-device-2 { background-color: var(--color-recent-3); }
+        .device-item.is-connected { background-color: var(--color-connected-bg); cursor: default; }
+
+        .scan-dialog-actions {
+            margin-top: var(--gap-m);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        #disconnectDialogBtn {
+            --md-text-button-label-text-color: var(--color-error);
+        }
         /* [新增代码] 修复“关于”页面中标题和图标不在同一行的问题 */
         #page-about .about-header {
             display: flex;
@@ -520,6 +603,24 @@
 <md-fab id="bluetoothFab" aria-label="蓝牙连接">
     <span class="material-symbols-outlined" slot="icon">bluetooth</span>
 </md-fab>
+<div id="scanDialog">
+    <div class="scan-dialog-content">
+        <div class="scan-dialog-header">
+            <h2>设备连接</h2>
+            <button class="close-btn" id="closeScanDialogBtn" aria-label="关闭">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+
+        <ul id="deviceScanList">
+        </ul>
+
+        <div class="scan-dialog-actions">
+            <md-text-button id="disconnectDialogBtn" style="visibility: hidden;">断开连接</md-text-button>
+            <md-text-button id="rescanBtn">重新扫描</md-text-button>
+        </div>
+    </div>
+</div>
 <div id="toast"></div>
 <div id="editModal">
     <div class="modal-content">
@@ -658,6 +759,8 @@
         const AppState = {
             currentPage: 'page-relay-control',
             isBtConnected: false,
+            connectedDeviceName: null,
+            connectedDeviceAddress: null,
             activeTimers: {},
             countdownIntervals: {}
         };
@@ -722,14 +825,24 @@
 
         const BTBridge = window.BTBridge;
 
-        const setupGlobalCallbacks = () => {
-                window.onConnectionStateChange = (state, deviceName) => {
+            window.onConnectionStateChange = (state, deviceName, deviceAddress) => {
                 const STATE_DISCONNECTED = 0;
                 const STATE_CONNECTING = 1;
                 const STATE_CONNECTED = 2;
 
-                const wasConnected = AppState.isBtConnected; // 保存之前的连接状态
+                const wasConnected = AppState.isBtConnected;
                 AppState.isBtConnected = (state === STATE_CONNECTED);
+
+                // [核心修改] 记录或清除连接的设备信息
+                if(AppState.isBtConnected){
+                    AppState.connectedDeviceName = deviceName;
+                    AppState.connectedDeviceAddress = deviceAddress;
+                    // 如果连接成功，更新历史记录
+                    if (window.ScanDialog) ScanDialog.updateConnectionHistory(deviceAddress);
+                } else {
+                    AppState.connectedDeviceName = null;
+                    AppState.connectedDeviceAddress = null;
+                }
 
                 let statusText, dotClass;
 
@@ -741,14 +854,12 @@
                         break;
                     case STATE_CONNECTING:
                         statusText = '正在连接...';
-                        dotClass = 'disconnected'; // "连接中"状态可复用"未连接"的红色样式
-                        // 此处不弹窗，避免打扰
+                        dotClass = 'disconnected';
                         break;
                     case STATE_DISCONNECTED:
                     default:
                         statusText = '未连接';
                         dotClass = 'disconnected';
-                        // 仅当之前是“已连接”状态时，才弹出“已断开”的提示
                         if (wasConnected) {
                             showToast('蓝牙已断开');
                         }
@@ -758,10 +869,10 @@
                 globalBtStateText.textContent = statusText;
                 globalBtStateDot.className = `status-dot ${dotClass}`;
 
-                // 保持原有的日志和状态同步逻辑
                 LogPage.addLog({ type: 'system', content: statusText, description: `设备: ${deviceName || 'N/A'}` });
                 if (!AppState.isBtConnected) RelayPage.stopAllAutoCycles();
             };
+
             window.onError = (message) => {
                 showToast(`错误: ${message}`);
                 LogPage.addLog({ type: 'error', content: message, description: '发生错误' });
@@ -791,7 +902,6 @@
                     permissionOverlay.classList.add('show');
                 }
             };
-        };
 
         const showToast = (message) => {
             toastElement.textContent = message;
@@ -1183,8 +1293,8 @@
                 handleData: (hex) => {
                     const upperHex = hex.toUpperCase().replace(/\s/g, '');
                     for (let i = 0; i < relays.length; i++) {
-                        if (upperHex === relays[i].onCommand.toUpperCase().replace(/\s/g, '') && relays[i].status !== 'on') { updateRelayStatusUI(i, 'on'); return; }
-                        if (upperHex === relays[i].offCommand.toUpperCase().replace(/\s/g, '') && relays[i].status !== 'off') { updateRelayStatusUI(i, 'off'); return; }
+                        if (upperHex === relays[i].onCommand.toUpperCase().replace(/\s/g, '') && relays[i].status !== 'on') { updateRelayStatusUI(i, 'on');}
+                        if (upperHex === relays[i].offCommand.toUpperCase().replace(/\s/g, '') && relays[i].status !== 'off') { updateRelayStatusUI(i, 'off');}
                     }
                 },
                 updateAllTimerStatus,
@@ -1327,19 +1437,211 @@
         updateQRVisibility();
         };
 
+        // [新增] 用于接收原生扫描结果的回调接口
+        window.onDiscoveryStarted = () => ScanDialog.onScanStarted();
+        window.onDeviceFound = (name, address, type) => ScanDialog.onDeviceFound(name, address, type);
+        window.onDiscoveryFinished = () => ScanDialog.onScanFinished();
+
+        // [新增] 扫描弹窗模块
+        const ScanDialog = (() => {
+            const scanDialog = document.getElementById('scanDialog');
+            const closeScanDialogBtn = document.getElementById('closeScanDialogBtn');
+            const rescanBtn = document.getElementById('rescanBtn');
+            const deviceScanList = document.getElementById('deviceScanList');
+            const disconnectDialogBtn = document.getElementById('disconnectDialogBtn');
+
+            const RECENT_DEVICES_KEY = 'bt_recent_devices';
+            let discoveredDevices = [];
+            let isScanning = false;
+
+            const loadConnectionHistory = () => {
+                const history = localStorage.getItem(RECENT_DEVICES_KEY);
+                return history ? JSON.parse(history) : [];
+            };
+
+            const updateConnectionHistory = (newAddress) => {
+                let history = loadConnectionHistory();
+                history = history.filter(address => address !== newAddress);
+                history.unshift(newAddress);
+                const updatedHistory = history.slice(0, 3);
+                localStorage.setItem(RECENT_DEVICES_KEY, JSON.stringify(updatedHistory));
+            };
+
+            const show = () => {
+                scanDialog.classList.add('show');
+                BTBridge.startScan();
+            };
+
+            const hide = () => {
+                BTBridge.stopScan();
+                scanDialog.classList.remove('show');
+            };
+
+            // [修正位置] 这个函数应该在这里，作为 ScanDialog 模块的独立函数
+            const getIconForDeviceType = (deviceClass) => {
+                // 根据安卓蓝牙API返回的设备类别代码进行判断
+                // 参考: https://developer.android.com/reference/android/bluetooth/BluetoothClass.Device
+                switch (deviceClass) {
+                    case 1028: case 1032: case 1056: return 'headset'; //穿戴式设备: 耳机, 智能手表
+                    case 1040: case 1044: case 1048: case 1064: return 'speaker'; // 音频设备: 音箱, 车载音响
+                    case 260: case 264: case 268: return 'computer'; // 电脑
+                    case 512: case 516: case 520: case 524: case 528: case 532: return 'phone_iphone'; // 手机
+                    case 1344: return 'stadia_controller'; // 外设: 手柄
+                    case 1280: return 'keyboard'; // 外设: 键盘
+                    default: return 'bluetooth'; // 其他或未知
+                }
+            };
+
+            const renderDeviceList = () => {
+                deviceScanList.innerHTML = '';
+                const history = loadConnectionHistory();
+                const connectedDeviceAddress = AppState.isBtConnected ? AppState.connectedDeviceAddress : null;
+
+                let recentDevices = [];
+                const otherDevices = [];
+                const allDisplayDevices = [...discoveredDevices];
+
+                if (connectedDeviceAddress && !allDisplayDevices.some(d => d.address === connectedDeviceAddress)) {
+                    allDisplayDevices.unshift({ name: AppState.connectedDeviceName, address: connectedDeviceAddress, type: 0 });
+                }
+
+                let displayHistory = [...history];
+                if (connectedDeviceAddress) {
+                    displayHistory = displayHistory.filter(addr => addr !== connectedDeviceAddress);
+                    displayHistory.unshift(connectedDeviceAddress);
+                }
+
+                const recentAddresses = new Set(displayHistory.slice(0, 3));
+
+                allDisplayDevices.forEach(device => {
+                    if (recentAddresses.has(device.address)) {
+                        recentDevices.push(device);
+                    } else {
+                        otherDevices.push(device);
+                    }
+                });
+
+                recentDevices.sort((a, b) => displayHistory.indexOf(a.address) - displayHistory.indexOf(b.address));
+
+                if (recentDevices.length > 0) {
+                    recentDevices.forEach((device, index) => {
+                        const isConnected = connectedDeviceAddress && device.address === connectedDeviceAddress;
+                        const item = createDeviceItem(device, true, isConnected, index);
+                        deviceScanList.appendChild(item);
+                    });
+                }
+
+                otherDevices.forEach(device => {
+                    const item = createDeviceItem(device, false, false, -1);
+                    deviceScanList.appendChild(item);
+                });
+
+                if(isScanning && allDisplayDevices.length === 0){
+                    deviceScanList.innerHTML = '<li style="padding: 16px; text-align: center; color: var(--color-on-surface-variant);">正在扫描附近的设备...</li>';
+                }
+            };
+
+            const createDeviceItem = (device, isRecent, isConnected, recentIndex) => {
+                const listItem = document.createElement('li');
+                listItem.className = 'device-item';
+                listItem.dataset.address = device.address;
+
+                let badgeHTML = '';
+                if (isConnected) {
+                    listItem.classList.add('is-connected');
+                    badgeHTML = '<span class="device-status-badge connected">正在连接</span>';
+                } else if (isRecent) {
+                    listItem.classList.add(`recent-device-${recentIndex}`);
+                    badgeHTML = '<span class="device-status-badge recent">最近连接</span>';
+                }
+
+                const iconName = getIconForDeviceType(device.type || 0);
+
+                listItem.innerHTML = `
+                    <span class="material-symbols-outlined">${iconName}</span>
+                    <div class="device-info">
+                        <span class="device-name">${device.name || '未知设备'}</span>
+                        <span class="device-address">${device.address}</span>
+                    </div>
+                    ${badgeHTML}
+                `;
+
+                if (!isConnected) {
+                    listItem.addEventListener('click', () => {
+                        BTBridge.connect(device.address);
+                        hide();
+                    });
+                }
+                return listItem;
+            };
+
+            const disconnect = () => {
+                BTBridge.disconnect();
+                hide();
+            };
+
+            const init = () => {
+                closeScanDialogBtn.addEventListener('click', hide);
+                disconnectDialogBtn.addEventListener('click', disconnect);
+                rescanBtn.addEventListener('click', () => BTBridge.startScan()); // <-- 修正为 startScan()
+                scanDialog.addEventListener('click', (event) => { if (event.target === scanDialog) hide(); });
+            };
+
+            return {
+                init,
+                show,
+                hide,
+                updateConnectionHistory,
+                onScanStarted: () => {
+                    isScanning = true;
+                    discoveredDevices = [];
+                    disconnectDialogBtn.style.visibility = AppState.isBtConnected ? 'visible' : 'hidden';
+                    rescanBtn.innerHTML = '正在扫描...'; // [优化] 增加扫描状态反馈
+                    rescanBtn.disabled = true;           // [优化] 扫描时禁用按钮
+                    renderDeviceList();
+                },
+                onDeviceFound: (name, address, type) => {
+                  const existingDevice = discoveredDevices.find(d => d.address === address);
+                  if (existingDevice) {
+                      // [优化] 如果设备已存在，并且有了新的、更具体的名字，就更新它
+                      if (name && name !== "未知设备" && existingDevice.name !== name) {
+                         existingDevice.name = name;
+                      }
+                  } else {
+                        // 如果是新设备，则添加到列表
+                        discoveredDevices.push({ name, address, type });
+                  }
+                  // 统一调用渲染，确保列表能实时更新
+                  renderDeviceList();
+                }, // <--- [核心修复] 在这里补上一个逗号
+
+                onScanFinished: () => {
+                    isScanning = false;
+                    rescanBtn.innerHTML = '重新扫描'; // [优化] 恢复按钮状态
+                    rescanBtn.disabled = false;          // [优化] 恢复按钮可用
+                    // 如果扫描结束了列表还是空的，显示提示
+                    if (discoveredDevices.length === 0) {
+                        deviceScanList.innerHTML = '<li style="padding: 16px; text-align: center; color: var(--color-on-surface-variant);">未发现任何设备，请确保设备已开启并靠近手机。</li>';
+                    }
+                }
+            };
+        })();
+
         // --- App Initialization ---
         const initializeApp = () => {
             LogPage.init();
             RelayPage.init();
             DebugPage.init();
-            setupGlobalCallbacks();
             setupPaymentModal();
+            ScanDialog.init();
 
             bluetoothFab.onclick = () => {
                 if (AppState.isBtConnected) {
-                    BTBridge.disconnect();
+                     showConfirmDialog('确认要断开当前连接吗？', () => {
+                        BTBridge.disconnect();
+                    });
                 } else {
-                    BTBridge.connect();
+                    ScanDialog.show();
                 }
             };
 
@@ -1363,6 +1665,7 @@
             }
 
         initializeApp();
+
     });
 </script>
 

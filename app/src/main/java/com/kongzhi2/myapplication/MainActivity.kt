@@ -3,6 +3,9 @@ package com.kongzhi2.myapplication // 确保包名和你的项目一致
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.AlarmManager
+import android.app.AlertDialog
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothManager
 import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
@@ -10,34 +13,50 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.ServiceConnection
 import android.content.pm.PackageManager
+import android.location.LocationManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
 import android.provider.Settings
 import android.util.Log
+import android.view.View
+import android.view.WindowInsetsController
 import android.webkit.ConsoleMessage
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
-import android.view.View
-import android.view.WindowInsetsController
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import com.google.gson.Gson
+import androidx.localbroadcastmanager.content.LocalBroadcastManager // [修改] 新增 import
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
     private var bluetoothService: BluetoothService? = null
     private var isBound = false
-    private val gson = Gson()
 
     private lateinit var requestPermissionsLauncher: ActivityResultLauncher<Array<String>>
+
+    // [修改] 新增 LocalBroadcastManager 成员变量
+    private lateinit var localBroadcastManager: LocalBroadcastManager
+
+    private val bluetoothEnableLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK) {
+            Log.d("MainActivity", "Bluetooth has been enabled by user.")
+            checkAndRequestRuntimePermissions()
+        } else {
+            Log.w("MainActivity", "User denied enabling Bluetooth.")
+            Toast.makeText(this, "需要开启蓝牙才能搜索设备", Toast.LENGTH_LONG).show()
+        }
+    }
+
 
     // 服务连接对象
     private val serviceConnection = object : ServiceConnection {
@@ -46,7 +65,6 @@ class MainActivity : AppCompatActivity() {
             bluetoothService = binder.getService()
             isBound = true
             Log.d("MainActivity", "BluetoothService connected.")
-            // 服务连接后，立即请求一次完整状态更新，确保UI同步
             bluetoothService?.requestFullStatusUpdate()
         }
 
@@ -57,15 +75,15 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // 广播接收器，用于接收来自Service的状态更新
+    // 广播接收器
     private val broadcastReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
                 BluetoothService.ACTION_STATE_CHANGED -> {
                     val state = intent.getIntExtra(BluetoothService.EXTRA_STATE, BluetoothService.STATE_DISCONNECTED)
                     val deviceName = intent.getStringExtra(BluetoothService.EXTRA_DEVICE_NAME) ?: "未连接"
-                    Log.d("MainActivity", "Received state change: $state, Device: $deviceName")
-                    runJs("javascript:window.onConnectionStateChange($state, '$deviceName');")
+                    val deviceAddress = bluetoothService?.getLastConnectedDeviceAddress() ?: ""
+                    runJs("javascript:window.onConnectionStateChange($state, '$deviceName', '$deviceAddress');")
                 }
                 BluetoothService.ACTION_DATA_RECEIVED -> {
                     val data = intent.getStringExtra(BluetoothService.EXTRA_DATA)
@@ -79,6 +97,12 @@ class MainActivity : AppCompatActivity() {
                     val errorMessage = intent.getStringExtra(BluetoothService.EXTRA_ERROR_MESSAGE) ?: "未知错误"
                     sendJsError(errorMessage)
                 }
+                BluetoothService.ACTION_DEVICE_FOUND -> {
+                    val deviceName = intent.getStringExtra(BluetoothService.EXTRA_DEVICE_NAME) ?: "未知设备"
+                    val deviceAddress = intent.getStringExtra(BluetoothService.EXTRA_DEVICE_ADDRESS) ?: return
+                    val deviceType = intent.getIntExtra(BluetoothService.EXTRA_DEVICE_TYPE, 0)
+                    sendJsDeviceFound(deviceName, deviceAddress, deviceType)
+                }
             }
         }
     }
@@ -86,55 +110,134 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        // 设置状态栏图标为深色，以适配浅色背景
+
+        // [修改] 初始化 LocalBroadcastManager
+        localBroadcastManager = LocalBroadcastManager.getInstance(this)
+
+        // 设置状态栏样式 (为你优化了这里的逻辑)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            // Android 11 (API 30) 及以上版本
             window.insetsController?.setSystemBarsAppearance(
                 WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS,
                 WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
             )
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            // Android 6 (API 23) 到 Android 10 (API 29)
+        } else {
             @Suppress("DEPRECATION")
             window.decorView.systemUiVisibility = window.decorView.systemUiVisibility or View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
         }
 
-        setupPermissions()
+        setupPermissionsLauncher()
         setupWebView()
-        // startAndBindService() // 此行已移除
         registerAppReceiver()
 
-        checkAndRequestPermissions()
+        startPermissionCheckFlow()
     }
 
-    private fun setupPermissions() {
+    // 设置权限请求的回调
+    private fun setupPermissionsLauncher() {
         requestPermissionsLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
-            val allGranted = permissions.entries.all { it.value }
+            val allGranted = permissions.values.all { it }
+
             if (allGranted) {
-                Log.d("MainActivity", "All required permissions granted. Starting service.")
-                // ✅ 在获取所有权限后，安全地启动并绑定服务
-                startAndBindService()
+                Log.d("MainActivity", "All runtime permissions granted.")
+                if (!isLocationEnabled()) {
+                    showLocationDisabledDialog()
+                } else {
+                    startAndBindService()
+                }
             } else {
-                Toast.makeText(this, "需要蓝牙和通知权限才能正常工作", Toast.LENGTH_LONG).show()
+                Log.d("MainActivity", "Some permissions were denied.")
+                val shouldShowRationale = permissions.keys.any {
+                    shouldShowRequestPermissionRationale(it)
+                }
+                if (!shouldShowRationale) {
+                    showPermissionDeniedDialog()
+                } else {
+                    Toast.makeText(this, "需要所有权限才能正常工作", Toast.LENGTH_LONG).show()
+                }
             }
         }
     }
 
-    private fun checkAndRequestPermissions() {
-        val requiredPermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            arrayOf(
-                Manifest.permission.BLUETOOTH_SCAN,
-                Manifest.permission.BLUETOOTH_CONNECT,
-                Manifest.permission.POST_NOTIFICATIONS
-            )
-        } else {
-            arrayOf(
-                Manifest.permission.BLUETOOTH,
-                Manifest.permission.BLUETOOTH_ADMIN
-            )
+    private fun startPermissionCheckFlow() {
+        val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+        val bluetoothAdapter = bluetoothManager.adapter
+
+        if (bluetoothAdapter == null) {
+            Toast.makeText(this, "该设备不支持蓝牙", Toast.LENGTH_LONG).show()
+            return
         }
-        requestPermissionsLauncher.launch(requiredPermissions)
+
+        if (!bluetoothAdapter.isEnabled) {
+            Log.d("MainActivity", "Bluetooth is disabled. Requesting to enable.")
+            val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
+            bluetoothEnableLauncher.launch(enableBtIntent)
+        } else {
+            Log.d("MainActivity", "Bluetooth is already enabled. Checking runtime permissions.")
+            checkAndRequestRuntimePermissions()
+        }
     }
+
+    private fun checkAndRequestRuntimePermissions() {
+        val requiredPermissions = arrayOf(
+            Manifest.permission.BLUETOOTH_SCAN,
+            Manifest.permission.BLUETOOTH_CONNECT,
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.POST_NOTIFICATIONS
+        )
+
+        val permissionsToRequest = requiredPermissions.filter {
+            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
+        }.toTypedArray()
+
+        if (permissionsToRequest.isEmpty()) {
+            Log.d("MainActivity", "All required permissions are already granted.")
+            if (!isLocationEnabled()) {
+                showLocationDisabledDialog()
+            } else {
+                startAndBindService()
+            }
+        } else {
+            Log.d("MainActivity", "Requesting missing permissions: ${permissionsToRequest.joinToString()}")
+            requestPermissionsLauncher.launch(permissionsToRequest)
+        }
+    }
+
+    private fun isLocationEnabled(): Boolean {
+        val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        return locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
+                locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+    }
+
+    private fun showLocationDisabledDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("需要开启定位服务")
+            .setMessage("为了扫描到蓝牙设备，安卓系统要求应用开启位置信息服务。请在系统设置中开启它。")
+            .setPositiveButton("去设置") { _, _ ->
+                val intent = Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
+                startActivity(intent)
+            }
+            .setNegativeButton("取消") { dialog, _ ->
+                dialog.dismiss()
+                Toast.makeText(this, "未开启定位服务，可能无法发现设备", Toast.LENGTH_LONG).show()
+            }
+            .show()
+    }
+
+
+    private fun showPermissionDeniedDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("权限被拒绝")
+            .setMessage("应用需要'定位'和'附近的设备'权限才能扫描和连接蓝牙设备。请在系统设置中手动开启。")
+            .setPositiveButton("去设置") { _, _ ->
+                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                val uri = Uri.fromParts("package", packageName, null)
+                intent.data = uri
+                startActivity(intent)
+            }
+            .setNegativeButton("取消", null)
+            .show()
+    }
+
 
     @SuppressLint("SetJavaScriptEnabled", "JavascriptInterface")
     private fun setupWebView() {
@@ -153,6 +256,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startAndBindService() {
+        if (isBound) return
         val serviceIntent = Intent(this, BluetoothService::class.java)
         ContextCompat.startForegroundService(this, serviceIntent)
         bindService(serviceIntent, serviceConnection, Context.BIND_AUTO_CREATE)
@@ -164,12 +268,10 @@ class MainActivity : AppCompatActivity() {
             addAction(BluetoothService.ACTION_DATA_RECEIVED)
             addAction(BluetoothService.ACTION_ERROR)
             addAction(BluetoothService.ACTION_TIMER_UPDATE)
+            addAction(BluetoothService.ACTION_DEVICE_FOUND)
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(broadcastReceiver, intentFilter, RECEIVER_EXPORTED)
-        } else {
-            registerReceiver(broadcastReceiver, intentFilter)
-        }
+        // [修改] 使用 LocalBroadcastManager 注册，更稳定可靠
+        localBroadcastManager.registerReceiver(broadcastReceiver, intentFilter)
     }
 
     override fun onDestroy() {
@@ -178,19 +280,40 @@ class MainActivity : AppCompatActivity() {
             unbindService(serviceConnection)
             isBound = false
         }
-        unregisterReceiver(broadcastReceiver)
+        // [修改] 使用 LocalBroadcastManager 注销
+        localBroadcastManager.unregisterReceiver(broadcastReceiver)
     }
 
     // JS 接口
     inner class WebAppInterface {
         @JavascriptInterface
-        fun connect() {
-            bluetoothService?.findAndConnectDeviceByName("HCW")
+        fun startScan() {
+            runOnUiThread {
+                Log.d("WebAppInterface", "startScan called from JS")
+                bluetoothService?.startDiscovery()
+            }
+        }
+
+        @JavascriptInterface
+        fun stopScan() {
+            runOnUiThread {
+                Log.d("WebAppInterface", "stopScan called from JS")
+                bluetoothService?.stopDiscovery()
+            }
+        }
+
+        @JavascriptInterface
+        fun connect(address: String) {
+            runOnUiThread {
+                bluetoothService?.connect(address)
+            }
         }
 
         @JavascriptInterface
         fun disconnect() {
-            bluetoothService?.disconnect()
+            runOnUiThread {
+                bluetoothService?.disconnect()
+            }
         }
 
         @JavascriptInterface
@@ -233,12 +356,25 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+
+        @JavascriptInterface
+        fun onJsReady() {
+            runOnUiThread {
+                bluetoothService?.requestFullStatusUpdate()
+            }
+        }
     }
 
+    // 与JS通信的辅助函数
     private fun runJs(script: String) {
         runOnUiThread {
             webView.evaluateJavascript(script, null)
         }
+    }
+
+    private fun sendJsDeviceFound(name: String, address: String, type: Int) {
+        val escapedName = name.replace("'", "\\'")
+        runJs("javascript:window.onDeviceFound('$escapedName', '$address', $type);")
     }
 
     private fun sendJsError(message: String) {
@@ -251,7 +387,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun sendJsTimerUpdate(timersJson: String) {
-        val encodedJson = android.util.Base64.encodeToString(timersJson.toByteArray(), android.util.Base64.NO_WRAP)
+        val flag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) android.util.Base64.NO_WRAP else android.util.Base64.DEFAULT
+        val encodedJson = android.util.Base64.encodeToString(timersJson.toByteArray(), flag)
         runJs("javascript:window.onTimerUpdate('$encodedJson', true);")
     }
 }

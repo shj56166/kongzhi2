@@ -1,6 +1,5 @@
-package com.kongzhi2.myapplication // 确保包名和你的项目一致
+package com.kongzhi2.myapplication
 
-import android.Manifest
 import android.annotation.SuppressLint
 import android.app.AlarmManager
 import android.app.Notification
@@ -12,9 +11,10 @@ import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothSocket
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
+import android.content.IntentFilter
 import android.os.Binder
 import android.os.Build
 import android.os.Handler
@@ -22,24 +22,28 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
 import android.util.Log
-import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
+import androidx.core.content.edit // [修改] KTX 优化
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
+import java.util.Locale // [修改] 为 String.format 增加
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
-@SuppressLint("MissingPermission") // 我们在 MainActivity 中检查权限
+@SuppressLint("MissingPermission")
 class BluetoothService : Service() {
 
     private val binder = LocalBinder()
     private var bluetoothAdapter: BluetoothAdapter? = null
     private var connectThread: ConnectThread? = null
     private var connectedThread: ConnectedThread? = null
+
+    private lateinit var localBroadcastManager: LocalBroadcastManager
 
     private var connectionState = STATE_DISCONNECTED
     private var deviceName: String? = null
@@ -50,22 +54,45 @@ class BluetoothService : Service() {
     private lateinit var alarmManager: AlarmManager
     private var wakeLock: PowerManager.WakeLock? = null
 
-    // [修改点 1] 新增用于定时更新通知的 Handler 和 Runnable
     private val notificationUpdateHandler = Handler(Looper.getMainLooper())
     private var isNotificationUpdaterRunning = false
     private val notificationUpdater = object : Runnable {
         override fun run() {
-            // 只有当存在活动的定时器时才继续更新
             if (activeTimers.isNotEmpty()) {
-                updateNotification() // 刷新通知
-                notificationUpdateHandler.postDelayed(this, 1000) // 1秒后再次执行
+                updateNotification()
+                notificationUpdateHandler.postDelayed(this, 1000)
             } else {
-                // 如果没有任务了，就停止更新循环
                 isNotificationUpdaterRunning = false
             }
         }
     }
 
+    private val discoveryReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (intent.action == BluetoothDevice.ACTION_FOUND) {
+                val device: BluetoothDevice? =
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE, BluetoothDevice::class.java)
+                    } else {
+                        @Suppress("DEPRECATION")
+                        intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
+                    }
+
+                if (device != null) {
+                    val deviceName = device.name ?: "未知设备"
+                    val deviceType = device.bluetoothClass?.deviceClass ?: 0
+
+                    Log.d("BluetoothService", "Discovered device: $deviceName - ${device.address}")
+                    val broadcastIntent = Intent(ACTION_DEVICE_FOUND).apply {
+                        putExtra(EXTRA_DEVICE_NAME, deviceName)
+                        putExtra(EXTRA_DEVICE_ADDRESS, device.address)
+                        putExtra(EXTRA_DEVICE_TYPE, deviceType)
+                    }
+                    localBroadcastManager.sendBroadcast(broadcastIntent)
+                }
+            }
+        }
+    }
 
     companion object {
         const val STATE_DISCONNECTED = 0
@@ -77,7 +104,7 @@ class BluetoothService : Service() {
         const val ACTION_ERROR = "com.kongzhi2.myapplication.ERROR"
         const val ACTION_TIMER_UPDATE = "com.kongzhi2.myapplication.TIMER_UPDATE"
         const val ACTION_EXECUTE_TIMER_COMMAND = "com.kongzhi2.myapplication.EXECUTE_TIMER_COMMAND"
-
+        const val ACTION_DEVICE_FOUND = "com.kongzhi2.myapplication.DEVICE_FOUND"
 
         const val EXTRA_STATE = "extra_state"
         const val EXTRA_DEVICE_NAME = "extra_device_name"
@@ -86,6 +113,8 @@ class BluetoothService : Service() {
         const val EXTRA_TIMERS_JSON = "extra_timers_json"
         const val EXTRA_COMMAND = "extra_command"
         const val EXTRA_TASK_ID = "extra_task_id"
+        const val EXTRA_DEVICE_ADDRESS = "extra_device_address"
+        const val EXTRA_DEVICE_TYPE = "extra_device_type"
 
         private const val NOTIFICATION_CHANNEL_ID = "BluetoothServiceChannel"
         private const val NOTIFICATION_ID = 1
@@ -101,8 +130,13 @@ class BluetoothService : Service() {
         bluetoothAdapter = bluetoothManager.adapter
         alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
+        localBroadcastManager = LocalBroadcastManager.getInstance(this)
+
         createNotificationChannel()
         loadStateFromPrefs()
+
+        val filter = IntentFilter(BluetoothDevice.ACTION_FOUND)
+        registerReceiver(discoveryReceiver, filter)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -120,6 +154,35 @@ class BluetoothService : Service() {
         return START_STICKY
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        stopNotificationUpdater()
+        stopDiscovery()
+
+        try {
+            unregisterReceiver(discoveryReceiver)
+        } catch (e: IllegalArgumentException) {
+            Log.w("BluetoothService", "Discovery receiver not registered at destroy, skipping unregister.")
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    fun startDiscovery() {
+        if (bluetoothAdapter?.isDiscovering == true) {
+            bluetoothAdapter?.cancelDiscovery()
+        }
+        bluetoothAdapter?.startDiscovery()
+        Log.d("BluetoothService", "Bluetooth discovery started.")
+    }
+
+    @SuppressLint("MissingPermission")
+    fun stopDiscovery() {
+        if (bluetoothAdapter?.isDiscovering == true) {
+            bluetoothAdapter?.cancelDiscovery()
+        }
+        Log.d("BluetoothService", "Bluetooth discovery stopped.")
+    }
+
     private fun executeTimerCommand(taskId: String, command: String) {
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
         wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MyApp::TimerWakeLock")
@@ -129,7 +192,6 @@ class BluetoothService : Service() {
             activeTimers.remove(taskId)
             saveTimersToPrefs()
             broadcastTimerUpdate()
-            // [修改点 2] 任务执行后，检查是否需要停止通知更新器
             if (activeTimers.isEmpty()) {
                 stopNotificationUpdater()
             }
@@ -158,42 +220,6 @@ class BluetoothService : Service() {
         }
     }
 
-    // [核心修复] 新增的函数，按名称查找并连接设备
-    @SuppressLint("MissingPermission") // 权限在 MainActivity 中检查
-    fun findAndConnectDeviceByName(targetName: String) {
-        if (connectionState == STATE_CONNECTING || connectionState == STATE_CONNECTED) {
-            broadcastError("已连接或正在连接中")
-            return
-        }
-
-        // 检查蓝牙适配器是否可用
-        if (bluetoothAdapter == null) {
-            broadcastError("此设备不支持蓝牙")
-            return
-        }
-        if (!bluetoothAdapter!!.isEnabled) {
-            broadcastError("请先打开蓝牙开关")
-            return
-        }
-
-        // 获取已配对设备列表
-        val pairedDevices: Set<BluetoothDevice>? = bluetoothAdapter?.bondedDevices
-        // 在列表中查找名称匹配的设备（忽略大小写）
-        val targetDevice = pairedDevices?.find { it.name.equals(targetName, ignoreCase = true) }
-
-        if (targetDevice != null) {
-            // 找到了设备
-            Log.d("BluetoothService", "找到了已配对的设备 '${targetDevice.name}' 地址: ${targetDevice.address}")
-            // 使用其地址进行连接
-            connect(targetDevice.address)
-        } else {
-            // 未找到设备
-            Log.w("BluetoothService", "在已配对列表中未找到设备 '$targetName'")
-            broadcastError("在已配对列表中未找到设备 '$targetName'。请确保设备已配对且名称正确。")
-        }
-    }
-
-
     @Synchronized
     fun connect(address: String, onConnected: (() -> Unit)? = null) {
         if (connectionState == STATE_CONNECTING || connectionState == STATE_CONNECTED) {
@@ -204,22 +230,14 @@ class BluetoothService : Service() {
             broadcastError("无法获取设备: $address")
             return
         }
+        stopDiscovery()
+
         connectThread = ConnectThread(device, onConnected)
         connectThread?.start()
         setState(STATE_CONNECTING, device.name)
         lastDeviceAddress = address
         saveStateToPrefs()
     }
-
-    fun connectLastDevice() {
-        if (lastDeviceAddress != null) {
-            connect(lastDeviceAddress!!)
-        } else {
-            // 修改了这里的提示，使其更清晰
-            broadcastError("没有可连接的历史设备。请先成功连接一次。")
-        }
-    }
-
 
     @Synchronized
     fun disconnect() {
@@ -232,6 +250,10 @@ class BluetoothService : Service() {
 
     fun sendData(data: String) {
         connectedThread?.write(data.hexToByteArray())
+    }
+
+    fun getLastConnectedDeviceAddress(): String? {
+        return lastDeviceAddress
     }
 
     fun requestFullStatusUpdate() {
@@ -254,21 +276,21 @@ class BluetoothService : Service() {
             putExtra(EXTRA_STATE, state)
             putExtra(EXTRA_DEVICE_NAME, name)
         }
-        sendBroadcast(intent)
+        localBroadcastManager.sendBroadcast(intent)
     }
 
     private fun broadcastData(data: String) {
         val intent = Intent(ACTION_DATA_RECEIVED).apply {
             putExtra(EXTRA_DATA, data)
         }
-        sendBroadcast(intent)
+        localBroadcastManager.sendBroadcast(intent)
     }
 
     private fun broadcastError(message: String) {
         val intent = Intent(ACTION_ERROR).apply {
             putExtra(EXTRA_ERROR_MESSAGE, message)
         }
-        sendBroadcast(intent)
+        localBroadcastManager.sendBroadcast(intent)
         Log.e("BluetoothService", message)
     }
 
@@ -277,7 +299,7 @@ class BluetoothService : Service() {
         val intent = Intent(ACTION_TIMER_UPDATE).apply {
             putExtra(EXTRA_TIMERS_JSON, timersJson)
         }
-        sendBroadcast(intent)
+        localBroadcastManager.sendBroadcast(intent)
         updateNotification()
         Log.d("BluetoothService", "Broadcasting timer update: $timersJson")
     }
@@ -310,7 +332,7 @@ class BluetoothService : Service() {
             saveTimersToPrefs()
         }
         broadcastTimerUpdate()
-        startNotificationUpdater() // [修改点 3] 设置任务后，启动通知更新器
+        startNotificationUpdater()
         Log.d("BluetoothService", "Timer set for task $taskId, command: $command")
     }
 
@@ -332,9 +354,9 @@ class BluetoothService : Service() {
                 Log.d("BluetoothService", "Timer canceled for task $taskId")
                 broadcastTimerUpdate()
 
-                // [修改点 4] 取消任务后，检查是否需要停止通知更新器
                 if (activeTimers.isEmpty()) {
                     stopNotificationUpdater()
+                } else {
                 }
             } else {
                 Log.w("BluetoothService", "Attempted to cancel a non-existent timer task: $taskId")
@@ -344,17 +366,17 @@ class BluetoothService : Service() {
 
     private fun saveTimersToPrefs() {
         val timersJson = gson.toJson(activeTimers)
-        getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit()
-            .putString(PREFS_KEY_TIMERS, timersJson)
-            .apply()
+        // [修改] 使用 KTX 优化
+        getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
+            putString(PREFS_KEY_TIMERS, timersJson)
+        }
     }
 
     private fun saveStateToPrefs() {
-        getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit()
-            .putString(PREFS_KEY_LAST_DEVICE, lastDeviceAddress)
-            .apply()
+        // [修改] 使用 KTX 优化
+        getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
+            putString(PREFS_KEY_LAST_DEVICE, lastDeviceAddress)
+        }
     }
 
     private fun loadStateFromPrefs() {
@@ -366,24 +388,18 @@ class BluetoothService : Service() {
             activeTimers.clear()
             activeTimers.putAll(loadedTimers)
             Log.d("BluetoothService", "Loaded ${activeTimers.size} timers from prefs.")
-            // [修改点 5] 加载状态后，如果存在任务，启动通知更新器
             startNotificationUpdater()
         }
         lastDeviceAddress = prefs.getString(PREFS_KEY_LAST_DEVICE, null)
         Log.d("BluetoothService", "Loaded last device address: $lastDeviceAddress")
     }
 
-
-    // 连接线程
     private inner class ConnectThread(private val device: BluetoothDevice, private val onConnectedCallback: (() -> Unit)? = null) : Thread() {
         private val mmSocket: BluetoothSocket? by lazy(LazyThreadSafetyMode.NONE) {
             device.createRfcommSocketToServiceRecord(MY_UUID)
         }
 
         override fun run() {
-            if (ActivityCompat.checkSelfPermission(this@BluetoothService, Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED) {
-                bluetoothAdapter?.cancelDiscovery()
-            }
             try {
                 mmSocket?.connect()
                 synchronized(this@BluetoothService) {
@@ -413,7 +429,6 @@ class BluetoothService : Service() {
         }
     }
 
-    // 数据收发线程
     private inner class ConnectedThread(private val mmSocket: BluetoothSocket) : Thread() {
         private val mmInStream: InputStream = mmSocket.inputStream
         private val mmOutStream: OutputStream = mmSocket.outputStream
@@ -452,7 +467,6 @@ class BluetoothService : Service() {
         }
     }
 
-    // Binder
     inner class LocalBinder : Binder() {
         fun getService(): BluetoothService = this@BluetoothService
     }
@@ -461,18 +475,11 @@ class BluetoothService : Service() {
         return binder
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        stopNotificationUpdater() // [修改点 6] 服务销毁时，确保停止更新器
-    }
-
-    // 通知栏相关
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val serviceChannel = NotificationChannel(
                 NOTIFICATION_CHANNEL_ID,
                 "蓝牙连接服务",
-                // [修改点 7] 将通知重要性降级，实现无声通知
                 NotificationManager.IMPORTANCE_LOW
             )
             val manager = getSystemService(NotificationManager::class.java)
@@ -490,9 +497,9 @@ class BluetoothService : Service() {
         return NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
             .setContentTitle(title)
             .setContentText(text)
-            .setSmallIcon(R.drawable.ic_launcher_foreground) // 确保你有这个 drawable
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentIntent(pendingIntent)
-            .setOnlyAlertOnce(true) // 仅在首次显示时打扰用户
+            .setOnlyAlertOnce(true)
             .build()
     }
 
@@ -525,14 +532,16 @@ class BluetoothService : Service() {
         }
         val nextTask = activeTimers.values.minByOrNull { it.triggerAt } ?: return "没有正在运行的定时任务"
         val remainingMs = nextTask.triggerAt - System.currentTimeMillis()
+        // [修改] 修复了 if as expression 必须有 else 的错误
         return if (remainingMs > 0) {
             val hours = TimeUnit.MILLISECONDS.toHours(remainingMs)
             val minutes = TimeUnit.MILLISECONDS.toMinutes(remainingMs) % 60
             val seconds = TimeUnit.MILLISECONDS.toSeconds(remainingMs) % 60
+            // [修改] 修复了 String.format 的 locale 警告
             val timeString = when {
-                hours > 0 -> String.format("%d小时%d分后执行", hours, minutes)
-                minutes > 0 -> String.format("%d分%d秒后执行", minutes, seconds)
-                else -> String.format("%d秒后执行", seconds)
+                hours > 0 -> String.format(Locale.getDefault(), "%d小时%d分后执行", hours, minutes)
+                minutes > 0 -> String.format(Locale.getDefault(), "%d分%d秒后执行", minutes, seconds)
+                else -> String.format(Locale.getDefault(), "%d秒后执行", seconds)
             }
             "下一个任务: $timeString"
         } else {
@@ -540,24 +549,19 @@ class BluetoothService : Service() {
         }
     }
 
-    // [修改点 8] 新增启动通知更新器的方法
     private fun startNotificationUpdater() {
-        // 如果更新器未运行且有任务，则启动它
         if (!isNotificationUpdaterRunning && activeTimers.isNotEmpty()) {
             isNotificationUpdaterRunning = true
-            // 立即开始，然后每秒重复
             notificationUpdateHandler.post(notificationUpdater)
             Log.d("BluetoothService", "Notification updater started.")
         }
     }
 
-    // [修改点 9] 新增停止通知更新器的方法
     private fun stopNotificationUpdater() {
         if (isNotificationUpdaterRunning) {
             isNotificationUpdaterRunning = false
             notificationUpdateHandler.removeCallbacks(notificationUpdater)
             Log.d("BluetoothService", "Notification updater stopped.")
-            // 停止后，最后更新一次通知，以显示最终状态（如 "没有任务"）
             updateNotification()
         }
     }
