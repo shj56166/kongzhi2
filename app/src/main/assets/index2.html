@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>蓝牙控制器</title>
+    <!-- 引入字体和图标库 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+    <!-- 引入 Material Web Components -->
+    <script type="module" src="https://esm.run/@material/web/all.js"></script>
+    <style>
+        /* --- 基础样式和CSS变量 --- */
+        :root {
+            --padding-l: 24px; --padding-m: 16px; --padding-s: 8px;
+            --radius-l: 28px; --radius-m: 16px; --radius-s: 8px;
+            --gap-m: 16px; --gap-s: 8px;
+            --color-accent: #007BFF; --color-on-accent: #FFFFFF;
+            --color-surface-container-highest: #FFFFFF; --color-surface-container-low: #F7F8FA;
+            --color-on-surface: #1a1c1e; --color-on-surface-variant: #5a6470;
+            --color-outline: #dce1e7; --color-background: #FDFDFD;
+            --color-success: #27ae60; --color-error: #c0392b;
+            --header-height: 72px; --anim-duration: 0.4s;
+            --anim-curve: cubic-bezier(0.3, 1.2, 0.2, 1);
+            /* [核心修改] 新增用于动态控制的 CSS 变量 */
+            --device-item-vertical-padding: 10px;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body {
+            height: 100%;
+            background-color: var(--color-background);
+            color: var(--color-on-surface);
+            font-family: 'Roboto', sans-serif;
+            overflow: hidden;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* --- 主体布局 --- */
+        .app-container { height: 100%; position: relative; }
+        .app-header {
+            position: fixed; top: 0; left: 0; right: 0;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 var(--padding-m);
+            height: calc(var(--header-height) + env(safe-area-inset-top, 0px));
+            padding-top: env(safe-area-inset-top, 0px);
+            background-color: var(--color-surface-container-highest);
+            border-bottom: 1px solid var(--color-outline);
+            z-index: 100;
+        }
+        .header-title-group { display: flex; flex-direction: column; gap: 4px; }
+        .header-title-group .title {
+            font-size: 22px;
+            font-weight: 700;
+            background: linear-gradient(45deg, var(--color-title-blue), var(--color-title-purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .status-area { display: flex; align-items: center; gap: var(--gap-s); font-size: 12px; color: var(--color-on-surface-variant); }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; transition: background-color 0.5s; }
+        .status-dot.connected { background-color: var(--color-success); }
+        .status-dot.disconnected { background-color: var(--color-error); }
+        .page-content {
+            padding: calc(var(--header-height) + env(safe-area-inset-top, 0px) + var(--padding-m)) var(--padding-m) var(--padding-m);
+            text-align: center;
+            color: var(--color-on-surface-variant);
+        }
+        .page-content .material-symbols-outlined {
+            font-size: 64px;
+            margin-bottom: var(--gap-m);
+        }
+
+        /* 调试控件样式 */
+        .debug-controls {
+            margin-top: 24px;
+            padding: var(--padding-m);
+            background-color: var(--color-surface-container-low);
+            border-radius: var(--radius-m);
+            text-align: left;
+            display: flex;
+            flex-direction: column;
+            gap: var(--padding-m);
+        }
+        .debug-controls label {
+            display: block;
+            margin-bottom: var(--gap-s);
+            font-weight: 500;
+            color: var(--color-on-surface);
+        }
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: var(--gap-m);
+        }
+        .slider-container input[type="range"] {
+            flex-grow: 1;
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 4px;
+            background: var(--color-outline);
+            border-radius: 2px;
+            outline: none;
+        }
+        .slider-container input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: var(--color-accent);
+            cursor: pointer;
+            border-radius: 50%;
+        }
+        .slider-container input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: var(--color-accent);
+            cursor: pointer;
+            border-radius: 50%;
+        }
+        .slider-value {
+            font-weight: 500;
+            color: var(--color-accent);
+            min-width: 50px;
+            text-align: right;
+        }
+
+
+        /* --- 蓝牙悬浮按钮 --- */
+        #bluetoothFab {
+            position: fixed;
+            bottom: var(--padding-l);
+            right: var(--padding-l);
+            z-index: 110;
+            --md-fab-container-color: var(--color-accent);
+            --md-fab-icon-color: var(--color-on-accent);
+        }
+
+        /* --- 扫描弹窗样式 --- */
+        #scanDialog {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; align-items: center; justify-content: center;
+            z-index: 200; opacity: 0; pointer-events: none;
+            transition: opacity 0.3s ease-in-out;
+            -webkit-backdrop-filter: blur(8px);
+            backdrop-filter: blur(8px);
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        #scanDialog.show { opacity: 1; pointer-events: auto; }
+
+        .scan-dialog-content {
+            background: var(--color-surface-container-highest);
+            padding: var(--padding-m) var(--padding-l);
+            border-radius: var(--radius-l);
+            width: calc(100% - 32px);
+            max-width: 400px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+            transform: scale(0.9);
+            opacity: 0;
+            transition: transform var(--anim-duration) var(--anim-curve), opacity var(--anim-duration) ease-out;
+            -webkit-transform: scale(0.9);
+            -webkit-transition: -webkit-transform var(--anim-duration) var(--anim-curve), opacity var(--anim-duration) ease-out;
+        }
+        #scanDialog.show .scan-dialog-content {
+            transform: scale(1);
+            opacity: 1;
+            -webkit-transform: scale(1);
+        }
+
+        .scan-dialog-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--gap-s);
+        }
+        .scan-dialog-header h2 { margin: 0; font-size: 22px; }
+        .scan-dialog-header .close-btn {
+            background: none; border: none; cursor: pointer;
+            color: var(--color-on-surface-variant);
+            padding: var(--padding-s); border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        .scan-animation-bar {
+            height: 3px;
+            width: 100%;
+            background-color: var(--color-outline);
+            position: relative;
+            overflow: hidden;
+            margin-bottom: var(--gap-s);
+            border-radius: 3px;
+        }
+        .scan-animation-bar::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 30%;
+            background: linear-gradient(90deg, transparent, var(--color-accent), transparent);
+            animation: scan-line-animation 2s linear infinite;
+        }
+        @keyframes scan-line-animation {
+            from { transform: translateX(-100%); }
+            to { transform: translateX(333%); }
+        }
+
+        #deviceScanList {
+            list-style: none; padding: 0; margin: 0;
+            height: 365px;
+            overflow-y: scroll;
+            border-bottom: 1px solid var(--color-outline);
+        }
+
+        #deviceScanList::-webkit-scrollbar {
+            width: 6px;
+        }
+        #deviceScanList::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        #deviceScanList::-webkit-scrollbar-thumb {
+            background-color: var(--color-outline);
+            border-radius: 3px;
+        }
+
+        .device-item {
+            display: flex; align-items: center;
+            gap: 12px;
+            /* [核心修改] 使用 CSS 变量控制垂直内边距 */
+            padding: var(--device-item-vertical-padding) 12px;
+            cursor: pointer;
+            border-bottom: 1px solid var(--color-outline);
+            opacity: 0;
+        }
+
+        .device-item:last-child { border-bottom: none; }
+        .device-item:not(.is-connected):hover { background-color: var(--color-surface-container-low); }
+
+        .device-info {
+            flex-grow: 1;
+            min-width: 0;
+        }
+
+        .device-name {
+            display: block;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .device-address {
+            display: block;
+            font-size: 12px;
+            color: var(--color-on-surface-variant);
+        }
+
+        .device-status-badge {
+            font-size: 10px; font-weight: 500;
+            color: var(--color-on-accent);
+            padding: 2px 6px;
+            border-radius: var(--radius-s);
+            flex-shrink: 0;
+        }
+        .device-status-badge.recent { background-color: var(--color-accent); }
+        .device-status-badge.connected { background-color: var(--color-success); }
+
+        .device-item.recent-device-0 { background-color: var(--color-recent-1); }
+        .device-item.recent-device-1 { background-color: var(--color-recent-2); }
+        .device-item.recent-device-2 { background-color: var(--color-recent-3); }
+        .device-item.is-connected { background-color: var(--color-connected-bg); cursor: default; }
+
+        .scan-dialog-actions {
+            margin-top: var(--gap-m);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        #disconnectDialogBtn {
+            --md-text-button-label-text-color: var(--color-error);
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <header class="app-header">
+        <div class="header-title-group">
+            <span class="title">蓝牙控制器</span>
+            <div class="status-area">
+                <div id="globalBtStateDot" class="status-dot disconnected"></div>
+                <span id="globalBtStateText">未连接</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="page-content">
+        <span class="material-symbols-outlined">bluetooth_disabled</span>
+        <p>请点击右下角按钮开始扫描设备</p>
+
+        <!-- [新增] 调试控件 -->
+        <div class="debug-controls">
+            <div>
+                <label for="intervalSlider">动画间隔 (ms)</label>
+                <div class="slider-container">
+                    <input type="range" id="intervalSlider" min="50" max="1000" step="10">
+                    <span id="intervalValue" class="slider-value">400 ms</span>
+                </div>
+            </div>
+            <div>
+                <label for="paddingSlider">设备垂直留白 (px)</label>
+                <div class="slider-container">
+                    <input type="range" id="paddingSlider" min="4" max="20" step="1">
+                    <span id="paddingValue" class="slider-value">10 px</span>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <md-fab id="bluetoothFab" aria-label="蓝牙扫描">
+        <span class="material-symbols-outlined" slot="icon">bluetooth_searching</span>
+    </md-fab>
+</div>
+
+<div id="scanDialog">
+    <div class="scan-dialog-content">
+        <div class="scan-dialog-header">
+            <h2>设备连接</h2>
+            <button class="close-btn" id="closeScanDialogBtn" aria-label="关闭">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+
+        <div class="scan-animation-bar"></div>
+
+        <ul id="deviceScanList">
+        </ul>
+
+        <div class="scan-dialog-actions">
+            <md-text-button id="disconnectDialogBtn" style="visibility: hidden;">断开连接</md-text-button>
+            <md-text-button id="rescanBtn">重新扫描</md-text-button>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+
+        const bluetoothFab = document.getElementById('bluetoothFab');
+        const scanDialog = document.getElementById('scanDialog');
+        const closeScanDialogBtn = document.getElementById('closeScanDialogBtn');
+        const rescanBtn = document.getElementById('rescanBtn');
+        const deviceScanList = document.getElementById('deviceScanList');
+        const disconnectDialogBtn = document.getElementById('disconnectDialogBtn');
+        const statusDot = document.getElementById('globalBtStateDot');
+        const statusText = document.getElementById('globalBtStateText');
+
+        // [新增] 调试控件引用
+        const intervalSlider = document.getElementById('intervalSlider');
+        const intervalValue = document.getElementById('intervalValue');
+        const paddingSlider = document.getElementById('paddingSlider');
+        const paddingValue = document.getElementById('paddingValue');
+
+        const MOCK_DEVICES = [
+            { name: 'My Speaker', address: '11:22:33:AA:BB:CC', type: 'speaker' },
+            { name: '智能插座', address: '44:55:66:DD:EE:FF', type: 'outlet' },
+            { name: 'HCW', address: 'A0:B1:C2:D3:E4:F5', type: 'default' },
+            { name: '车载蓝牙', address: '77:88:99:00:11:22', type: 'car_audio' },
+            { name: '未知设备', address: 'B3:C4:D5:E6:F7:A8', type: 'default' },
+            { name: '我的电脑', address: 'C4:D5:E6:F7:A8:B9', type: 'computer' },
+            { name: '小爱音箱', address: 'D5:E6:F7:A8:B9:C0', type: 'speaker' },
+            { name: '蓝牙耳机', address: 'E6:F7:A8:B9:C0:D1', type: 'headset' },
+            { name: '开发板-01', address: 'F7:A8:B9:C0:D1:E2', type: 'memory' },
+            { name: '我的手机', address: 'A8:B9:C0:D1:E2:F3', type: 'phone' },
+            { name: '游戏手柄', address: 'B9:C0:D1:E2:F3:A4', type: 'gamepad' },
+            { name: '打印机', address: 'C0:D1:E2:F3:A4:B5', type: 'print' },
+            { name: '智能手表', address: 'D1:E2:F3:A4:B5:C6', type: 'watch' },
+            { name: '蓝牙键盘', address: 'E2:F3:A4:B5:C6:D7', type: 'keyboard' },
+        ];
+        const RECENT_DEVICES_KEY = 'bt_recent_devices';
+        let connectedDevice = null;
+        let deviceRenderTimers = [];
+        let animationInterval = 400;
+
+        const animateItemIn = (element, duration = 700) => {
+            const start = performance.now();
+            const ease = (t) => 1 - Math.pow(1 - t, 3);
+
+            const tick = (now) => {
+                const elapsed = now - start;
+                const progress = Math.min(elapsed / duration, 1);
+                const easedProgress = ease(progress);
+
+                const opacity = easedProgress;
+                const translateY = 30 * (1 - easedProgress);
+                const blur = 8 * (1 - easedProgress);
+
+                element.style.opacity = opacity;
+                element.style.transform = `translateY(${translateY}px)`;
+                element.style.webkitTransform = `translateY(${translateY}px)`;
+                element.style.filter = `blur(${blur}px)`;
+                element.style.webkitFilter = `blur(${blur}px)`;
+
+                if (progress < 1) {
+                    requestAnimationFrame(tick);
+                } else {
+                    element.style.transform = '';
+                    element.style.webkitTransform = '';
+                    element.style.filter = '';
+                    element.style.webkitFilter = '';
+                }
+            };
+            requestAnimationFrame(tick);
+        };
+
+        const loadConnectionHistory = () => {
+            const history = localStorage.getItem(RECENT_DEVICES_KEY);
+            return history ? JSON.parse(history) : [];
+        };
+
+        const updateConnectionHistory = (newAddress) => {
+            let history = loadConnectionHistory();
+            history = history.filter(address => address !== newAddress);
+            history.unshift(newAddress);
+            const updatedHistory = history.slice(0, 3);
+            localStorage.setItem(RECENT_DEVICES_KEY, JSON.stringify(updatedHistory));
+        };
+
+        const showScanDialog = () => {
+            scanDialog.classList.add('show');
+            renderDeviceList();
+            disconnectDialogBtn.style.visibility = connectedDevice ? 'visible' : 'hidden';
+        };
+
+        const hideScanDialog = () => {
+            scanDialog.classList.remove('show');
+        };
+
+        const getIconForDeviceType = (type) => {
+            switch (type) {
+                case 'speaker': return 'speaker';
+                case 'computer': return 'computer';
+                case 'phone': return 'phone_iphone';
+                case 'headset': return 'headphones';
+                case 'car_audio': return 'directions_car';
+                case 'gamepad': return 'stadia_controller';
+                case 'outlet': return 'outlet';
+                case 'memory': return 'memory';
+                case 'print': return 'print';
+                case 'watch': return 'watch';
+                case 'keyboard': return 'keyboard';
+                default: return 'bluetooth';
+            }
+        };
+
+        const renderDeviceList = () => {
+            deviceRenderTimers.forEach(clearTimeout);
+            deviceRenderTimers = [];
+
+            deviceScanList.innerHTML = '';
+            const history = loadConnectionHistory();
+
+            let recentDevices = [];
+            const otherDevices = [];
+
+            MOCK_DEVICES.forEach(device => {
+                if ((!connectedDevice || device.address !== connectedDevice.address) && !history.includes(device.address)) {
+                    otherDevices.push(device);
+                }
+            });
+
+            let displayHistory = [...history];
+            if (connectedDevice) {
+                displayHistory = displayHistory.filter(addr => addr !== connectedDevice.address);
+                displayHistory.unshift(connectedDevice.address);
+            }
+
+            displayHistory.slice(0, 3).forEach(address => {
+                const device = MOCK_DEVICES.find(d => d.address === address);
+                if(device) recentDevices.push(device);
+            });
+
+            const allDevicesToRender = [...recentDevices, ...otherDevices];
+
+            if (allDevicesToRender.length === 0) {
+                deviceScanList.innerHTML = '<li style="padding: 16px; text-align: center; color: var(--color-on-surface-variant);">未找到可用设备</li>';
+                return;
+            }
+
+            allDevicesToRender.forEach((device, index) => {
+                const timerId = setTimeout(() => {
+                    const isConnected = connectedDevice && device.address === connectedDevice.address;
+                    const recentIndex = recentDevices.findIndex(d => d.address === device.address);
+                    const isRecent = recentIndex !== -1;
+
+                    const item = createDeviceItem(device, isRecent, isConnected, recentIndex);
+                    deviceScanList.appendChild(item);
+
+                    if (!isConnected) {
+                        animateItemIn(item);
+                    } else {
+                        item.style.opacity = 1;
+                    }
+
+                }, index * animationInterval);
+                deviceRenderTimers.push(timerId);
+            });
+        };
+
+        const createDeviceItem = (device, isRecent, isConnected, recentIndex) => {
+            const listItem = document.createElement('li');
+            listItem.className = 'device-item';
+            listItem.dataset.address = device.address;
+
+            let badgeHTML = '';
+            if (isConnected) {
+                listItem.classList.add('is-connected');
+                badgeHTML = '<span class="device-status-badge connected">已连接</span>';
+            } else if (isRecent) {
+                listItem.classList.add(`recent-device-${recentIndex}`);
+                badgeHTML = '<span class="device-status-badge recent">最近连接</span>';
+            }
+
+            const iconName = getIconForDeviceType(device.type);
+
+            listItem.innerHTML = `
+                <span class="material-symbols-outlined">${iconName}</span>
+                <div class="device-info">
+                    <span class="device-name">${device.name}</span>
+                    <span class="device-address">${device.address}</span>
+                </div>
+                ${badgeHTML}
+            `;
+
+            if (!isConnected) {
+                listItem.addEventListener('click', () => {
+                    updateConnectionHistory(device.address);
+                    connectedDevice = device;
+                    updateHeaderUI(connectedDevice);
+                    hideScanDialog();
+                });
+            }
+
+            return listItem;
+        };
+
+        const updateHeaderUI = (device) => {
+            if (device) {
+                statusDot.className = 'status-dot connected';
+                statusText.textContent = `已连接到 ${device.name}`;
+            } else {
+                statusDot.className = 'status-dot disconnected';
+                statusText.textContent = '未连接';
+            }
+        };
+
+        const disconnect = () => {
+            if (connectedDevice) {
+                console.log(`正在断开与 ${connectedDevice.name} 的连接`);
+            }
+            connectedDevice = null;
+            updateHeaderUI(null);
+            renderDeviceList();
+            disconnectDialogBtn.style.visibility = 'hidden';
+        };
+
+        // --- 事件绑定 ---
+        bluetoothFab.addEventListener('click', showScanDialog);
+        closeScanDialogBtn.addEventListener('click', hideScanDialog);
+        disconnectDialogBtn.addEventListener('click', disconnect);
+        rescanBtn.addEventListener('click', renderDeviceList);
+        scanDialog.addEventListener('click', (event) => {
+            if (event.target === scanDialog) {
+                hideScanDialog();
+            }
+        });
+
+        // [新增] 调试滑块的事件绑定
+        intervalSlider.addEventListener('input', (event) => {
+            animationInterval = parseInt(event.target.value, 10);
+            intervalValue.textContent = `${animationInterval} ms`;
+        });
+
+        paddingSlider.addEventListener('input', (event) => {
+            const newPadding = `${event.target.value}px`;
+            document.documentElement.style.setProperty('--device-item-vertical-padding', newPadding);
+            paddingValue.textContent = newPadding;
+        });
+
+        // 初始化滑块值
+        const initialPadding = getComputedStyle(document.documentElement).getPropertyValue('--device-item-vertical-padding').trim();
+        intervalSlider.value = animationInterval;
+        intervalValue.textContent = `${animationInterval} ms`;
+        paddingSlider.value = parseInt(initialPadding, 10);
+        paddingValue.textContent = initialPadding;
+
+    });
+</script>
+
+</body>
+</html>
