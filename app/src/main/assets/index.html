@@ -1,17 +1,24 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta charset="UTF-8"/>
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover"/>
     <title>蓝牙多功能控制器</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap"
+          rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
+          rel="stylesheet"/>
     <script type="module" src="https://esm.run/@material/web/all.js"></script>
     <style>
         :root {
             --padding-l: 24px; --padding-m: 16px; --padding-s: 8px; --radius-l: 28px; --radius-m: 16px; --gap-m: 16px; --gap-s: 8px; --color-accent: #007BFF; --color-on-accent: #FFFFFF; --color-accent-container: #E6F2FF; --color-on-accent-container: #0056B3; --color-surface-container-highest: #FFFFFF; --color-surface-container-low: #F7F8FA; --color-on-surface: #1a1c1e; --color-on-surface-variant: #5a6470; --color-outline: #dce1e7; --color-background: #FDFDFD; --color-success: #27ae60; --color-error: #c0392b; --color-inactive: #bdc3c7; --color-warning: #f39c12; --header-height: 72px; --nav-height: 64px; --anim-duration: 0.3s; --anim-curve: cubic-bezier(0.25, 0.8, 0.25, 1);
+            /* 蓝牙连接标题渐变色 */
+            --color-title-purple: #8e44ad;--color-title-blue: #3498db;--color-recent-1: #D2E4FF;--color-recent-2: #E0EBFF;--color-recent-3: #EBF3FF;--color-connected-bg: #C2D9FF;
+            /* [核心修复] 固化并增大设备卡片垂直内边距 */
+            --device-item-vertical-padding: 14px;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html, body { height: 100%; background-color: var(--color-background); color: var(--color-on-surface); font-family: 'Roboto', sans-serif; overflow: hidden;-webkit-tap-highlight-color: transparent; /* 移除移动端点击元素时的高亮背景 */ }
@@ -239,14 +246,14 @@
           border-radius: var(--radius-m); border: 1px solid var(--color-outline);
           object-fit: contain;
       }
-      /* --- 全新弹窗样式 结束 --- */
+        /* --- 全新弹窗样式 结束 --- */
 
-      /* --- 扫描弹窗样式 --- */
+        /* --- 扫描弹窗样式 --- */
         #scanDialog {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             display: flex; align-items: center; justify-content: center;
             z-index: 200; opacity: 0; pointer-events: none;
-            transition: opacity var(--anim-duration) ease-in-out;
+            transition: opacity 0.3s ease-in-out;
             -webkit-backdrop-filter: blur(8px);
             backdrop-filter: blur(8px);
             background-color: rgba(255, 255, 255, 0.1);
@@ -255,21 +262,28 @@
 
         .scan-dialog-content {
             background: var(--color-surface-container-highest);
-            padding: var(--padding-l);
+            padding: var(--padding-m) var(--padding-l);
             border-radius: var(--radius-l);
             width: calc(100% - 32px);
             max-width: 400px;
             box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-            transform: scale(0.95);
-            transition: transform var(--anim-duration) var(--anim-curve);
+            transform: scale(0.9);
+            opacity: 0;
+            transition: transform var(--anim-duration) var(--anim-curve), opacity var(--anim-duration) ease-out;
+            -webkit-transform: scale(0.9);
+            -webkit-transition: -webkit-transform var(--anim-duration) var(--anim-curve), opacity var(--anim-duration) ease-out;
         }
-        #scanDialog.show .scan-dialog-content { transform: scale(1); }
+        #scanDialog.show .scan-dialog-content {
+            transform: scale(1);
+            opacity: 1;
+            -webkit-transform: scale(1);
+        }
 
         .scan-dialog-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: var(--gap-m);
+            margin-bottom: var(--gap-s);
         }
         .scan-dialog-header h2 { margin: 0; font-size: 22px; }
         .scan-dialog-header .close-btn {
@@ -279,33 +293,84 @@
             display: flex; align-items: center; justify-content: center;
         }
 
+        .scan-animation-bar {
+            height: 3px;
+            width: 100%;
+            background-color: var(--color-outline);
+            position: relative;
+            overflow: hidden;
+            margin-bottom: var(--gap-s);
+            border-radius: 3px;
+        }
+        .scan-animation-bar::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 30%;
+            background: linear-gradient(90deg, transparent, var(--color-accent), transparent);
+            animation: scan-line-animation 2s linear infinite;
+        }
+        @keyframes scan-line-animation {
+            from { transform: translateX(-100%); }
+            to { transform: translateX(333%); }
+        }
+
         #deviceScanList {
             list-style: none; padding: 0; margin: 0;
-            max-height: 300px;
-            overflow-y: auto;
-            border-top: 1px solid var(--color-outline);
+            height: 365px;
+            overflow-y: scroll;
             border-bottom: 1px solid var(--color-outline);
+        }
+
+        #deviceScanList::-webkit-scrollbar {
+            width: 6px;
+        }
+        #deviceScanList::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        #deviceScanList::-webkit-scrollbar-thumb {
+            background-color: var(--color-outline);
+            border-radius: 3px;
         }
 
         .device-item {
-            display: flex; align-items: center; gap: var(--gap-m);
-            padding: var(--padding-m); cursor: pointer;
+            display: flex; align-items: center;
+            gap: 12px;
+            padding: var(--device-item-vertical-padding) 12px;
+            cursor: pointer;
             border-bottom: 1px solid var(--color-outline);
-            transition: background-color 0.2s;
+            opacity: 0;
         }
+
         .device-item:last-child { border-bottom: none; }
         .device-item:not(.is-connected):hover { background-color: var(--color-surface-container-low); }
 
-        .device-info { flex-grow: 1; }
-        .device-name { font-weight: 500; }
-        .device-address { font-size: 12px; color: var(--color-on-surface-variant); }
+        .device-info {
+            flex-grow: 1;
+            min-width: 0;
+        }
+
+        .device-name {
+            display: block;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .device-address {
+            display: block;
+            font-size: 12px;
+            color: var(--color-on-surface-variant);
+        }
 
         .device-status-badge {
             font-size: 10px; font-weight: 500;
             color: var(--color-on-accent);
             padding: 2px 6px;
             border-radius: var(--radius-s);
-            margin-left: var(--gap-s);
+            flex-shrink: 0;
         }
         .device-status-badge.recent { background-color: var(--color-accent); }
         .device-status-badge.connected { background-color: var(--color-success); }
@@ -321,9 +386,7 @@
             justify-content: space-between;
             align-items: center;
         }
-        #disconnectDialogBtn {
-            --md-text-button-label-text-color: var(--color-error);
-        }
+
         /* [新增代码] 修复“关于”页面中标题和图标不在同一行的问题 */
         #page-about .about-header {
             display: flex;
@@ -416,15 +479,36 @@
                     <span class="material-symbols-outlined icon">info</span>
                     <h2>关于本项目</h2>
                 </div>
-                <p>这是一款专为电子爱好者和开发者设计的SPP经典蓝牙多功能图形化智能APP。它不仅提供了直观的继电器控制界面，还集成了强大的底层指令调试工具，并通过后台服务确保蓝牙连接的稳定和定时任务的精准执行。</p>
+                <p>
+                    这是一款专为电子爱好者和开发者设计的SPP经典蓝牙多功能图形化智能APP。它不仅提供了直观的继电器控制界面，还集成了强大的底层指令调试工具，并通过后台服务确保蓝牙连接的稳定和定时任务的精准执行。</p>
                 <p style="display: flex; align-items: center; gap: 8px; margin-top: 12px; flex-wrap: wrap;">
                     <strong>作者：</strong> 拿铁咖啡不加奶 &nbsp;
                     <span style="display: inline-flex; align-items: center; gap: 4px;">
-                <svg height="1em" style="flex:none;line-height:1" viewBox="0 0 24 24" width="1em" xmlns="http://www.w3.org/2000/svg"><title>Gemini</title><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="#3186FF"></path><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="url(#lobe-icons-gemini-fill-0)"></path><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="url(#lobe-icons-gemini-fill-1)"></path><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="url(#lobe-icons-gemini-fill-2)"></path><defs><linearGradient gradientUnits="userSpaceOnUse" id="lobe-icons-gemini-fill-0" x1="7" x2="11" y1="15.5" y2="12"><stop stop-color="#08B962"></stop><stop offset="1" stop-color="#08B962" stop-opacity="0"></stop></linearGradient><linearGradient gradientUnits="userSpaceOnUse" id="lobe-icons-gemini-fill-1" x1="8" x2="11.5" y1="5.5" y2="11"><stop stop-color="#F94543"></stop><stop offset="1" stop-color="#F94543" stop-opacity="0"></stop></linearGradient><linearGradient gradientUnits="userSpaceOnUse" id="lobe-icons-gemini-fill-2" x1="3.5" x2="17.5" y1="13.5" y2="12"><stop stop-color="#FABC12"></stop><stop offset=".46" stop-color="#FABC12" stop-opacity="0"></stop></linearGradient></defs></svg>
+                <svg height="1em" style="flex:none;line-height:1" viewBox="0 0 24 24" width="1em"
+                     xmlns="http://www.w3.org/2000/svg"><title>Gemini</title><path
+                        d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z"
+                        fill="#3186FF"></path><path
+                        d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z"
+                        fill="url(#lobe-icons-gemini-fill-0)"></path><path
+                        d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z"
+                        fill="url(#lobe-icons-gemini-fill-1)"></path><path
+                        d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z"
+                        fill="url(#lobe-icons-gemini-fill-2)"></path><defs><linearGradient
+                        gradientUnits="userSpaceOnUse" id="lobe-icons-gemini-fill-0" x1="7" x2="11"
+                        y1="15.5" y2="12"><stop stop-color="#08B962"></stop><stop offset="1"
+                                                                                  stop-color="#08B962"
+                                                                                  stop-opacity="0"></stop></linearGradient><linearGradient
+                        gradientUnits="userSpaceOnUse" id="lobe-icons-gemini-fill-1" x1="8"
+                        x2="11.5" y1="5.5" y2="11"><stop stop-color="#F94543"></stop><stop
+                        offset="1" stop-color="#F94543" stop-opacity="0"></stop></linearGradient><linearGradient
+                        gradientUnits="userSpaceOnUse" id="lobe-icons-gemini-fill-2" x1="3.5"
+                        x2="17.5" y1="13.5" y2="12"><stop stop-color="#FABC12"></stop><stop
+                        offset=".46" stop-color="#FABC12" stop-opacity="0"></stop></linearGradient></defs></svg>
                 Gemini调试开发
             </span>
                 </p>
-                <p style="margin-top: 8px;"><strong>问题反馈：</strong> QQ 984388724 / shj561661@outlook.com</p>
+                <p style="margin-top: 8px;"><strong>问题反馈：</strong> QQ 984388724 /
+                    shj561661@outlook.com</p>
                 <p style="margin-top: 8px;">16岁初中生于2025年7月用AI协作完成的第一个安卓项目。</p>
                 <p class="info-chip">版本: 1.1.0 (one)</p>
             </div>
@@ -446,7 +530,8 @@
                     <li><strong>添加设备：</strong>点击底部“添加继电器”按钮。</li>
                     <li><strong>编辑设备：</strong>点击卡片右上角编辑图标，修改名称、指令等。</li>
                     <li><strong>手动控制：</strong>点击“开启”或“关闭”按钮发送指令。</li>
-                    <li><strong>展开高级功能：</strong>点击卡片右上角展开图标，进入定时/自动循环设置。</li>
+                    <li><strong>展开高级功能：</strong>点击卡片右上角展开图标，进入定时/自动循环设置。
+                    </li>
                 </ul>
 
                 <h3>设置定时任务</h3>
@@ -474,38 +559,53 @@
                 </div>
                 <ul class="feature-list" style="padding:0; list-style:none;">
                     <li class="feature-item">
-                        <span class="material-symbols-outlined icon" style="font-size:24px; color:var(--color-accent); margin-top:2px;">dynamic_feed</span>
+                        <span class="material-symbols-outlined icon"
+                              style="font-size:24px; color:var(--color-accent); margin-top:2px;">dynamic_feed</span>
                         <div class="feature-item-content" style="flex:1;">
-                            <h4 style="font-size:16px; font-weight:500; margin:0 0 4px;">多路动态控制</h4>
-                            <p>您可以根据需要，动态添加、编辑和删除控制卡片。每张卡片都可独立配置名称和开关对应的16进制指令，所有配置都会自动保存在本地，为您提供极高的灵活性和个性化体验。</p>
+                            <h4 style="font-size:16px; font-weight:500; margin:0 0 4px;">
+                                多路动态控制</h4>
+                            <p>
+                                您可以根据需要，动态添加、编辑和删除控制卡片。每张卡片都可独立配置名称和开关对应的16进制指令，所有配置都会自动保存在本地，为您提供极高的灵活性和个性化体验。</p>
                         </div>
                     </li>
                     <li class="feature-item">
-                        <span class="material-symbols-outlined icon" style="font-size:24px; color:var(--color-accent); margin-top:2px;">alarm</span>
+                        <span class="material-symbols-outlined icon"
+                              style="font-size:24px; color:var(--color-accent); margin-top:2px;">alarm</span>
                         <div class="feature-item-content" style="flex:1;">
-                            <h4 style="font-size:16px; font-weight:500; margin:0 0 4px;">精准后台定时</h4>
-                            <p>利用Android系统的<code>AlarmManager</code>，您可以设置倒计时或预约定时任务。得益于后台服务，即使App退至后台、息屏甚至设备休眠，任务依然会被唤醒并在预设时间精准触发，确保自动化任务万无一失。</p>
+                            <h4 style="font-size:16px; font-weight:500; margin:0 0 4px;">
+                                精准后台定时</h4>
+                            <p>利用Android系统的<code>AlarmManager</code>，您可以设置倒计时或预约定时任务。得益于后台服务，即使App退至后台、息屏甚至设备休眠，任务依然会被唤醒并在预设时间精准触发，确保自动化任务万无一失。
+                            </p>
                         </div>
                     </li>
                     <li class="feature-item">
-                        <span class="material-symbols-outlined icon" style="font-size:24px; color:var(--color-accent); margin-top:2px;">autorenew</span>
+                        <span class="material-symbols-outlined icon"
+                              style="font-size:24px; color:var(--color-accent); margin-top:2px;">autorenew</span>
                         <div class="feature-item-content" style="flex:1;">
-                            <h4 style="font-size:16px; font-weight:500; margin:0 0 4px;">高频自动循环</h4>
-                            <p>为单个设备开启自动循环模式，可自由调节每秒1到20次的开关频率。此功能非常适用于需要进行高频开关的设备测试、产品老化实验或任何需要快速脉冲信号的场景。</p>
+                            <h4 style="font-size:16px; font-weight:500; margin:0 0 4px;">
+                                高频自动循环</h4>
+                            <p>
+                                为单个设备开启自动循环模式，可自由调节每秒1到20次的开关频率。此功能非常适用于需要进行高频开关的设备测试、产品老化实验或任何需要快速脉冲信号的场景。</p>
                         </div>
                     </li>
                     <li class="feature-item">
-                        <span class="material-symbols-outlined icon" style="font-size:24px; color:var(--color-accent); margin-top:2px;">terminal</span>
+                        <span class="material-symbols-outlined icon"
+                              style="font-size:24px; color:var(--color-accent); margin-top:2px;">terminal</span>
                         <div class="feature-item-content" style="flex:1;">
-                            <h4 style="font-size:16px; font-weight:500; margin:0 0 4px;">底层指令调试</h4>
-                            <p>专为开发者设计的调试界面，支持以16进制或文本格式直接收发数据。您可以实时查看发送和接收的原始数据流，是进行蓝牙模块底层通信协议开发与验证的强大工具。</p>
+                            <h4 style="font-size:16px; font-weight:500; margin:0 0 4px;">
+                                底层指令调试</h4>
+                            <p>
+                                专为开发者设计的调试界面，支持以16进制或文本格式直接收发数据。您可以实时查看发送和接收的原始数据流，是进行蓝牙模块底层通信协议开发与验证的强大工具。</p>
                         </div>
                     </li>
                     <li class="feature-item">
-                        <span class="material-symbols-outlined icon" style="font-size:24px; color:var(--color-accent); margin-top:2px;">history</span>
+                        <span class="material-symbols-outlined icon"
+                              style="font-size:24px; color:var(--color-accent); margin-top:2px;">history</span>
                         <div class="feature-item-content" style="flex:1;">
-                            <h4 style="font-size:16px; font-weight:500; margin:0 0 4px;">全面操作日志</h4>
-                            <p>自动记录蓝牙连接、断开、数据收发、系统错误等所有关键操作，并提供清晰的分类和精确到毫秒的时间戳。当出现意外情况时，日志页面是您追溯问题、快速定位故障的得力助手。</p>
+                            <h4 style="font-size:16px; font-weight:500; margin:0 0 4px;">
+                                全面操作日志</h4>
+                            <p>
+                                自动记录蓝牙连接、断开、数据收发、系统错误等所有关键操作，并提供清晰的分类和精确到毫秒的时间戳。当出现意外情况时，日志页面是您追溯问题、快速定位故障的得力助手。</p>
                         </div>
                     </li>
                 </ul>
@@ -516,27 +616,37 @@
                     <span class="material-symbols-outlined icon">architecture</span>
                     <h2>应用架构解析</h2>
                 </div>
-                <p>本应用采用现代Android混合开发模式，将Web技术的灵活与原生功能的强大深度融合，实现了高性能与高效率的统一。</p>
+                <p>
+                    本应用采用现代Android混合开发模式，将Web技术的灵活与原生功能的强大深度融合，实现了高性能与高效率的统一。</p>
                 <ul style="padding-left: 20px;">
                     <li>
                         <strong>前端界面 (UI Layer):</strong>
-                        <p>整个用户界面由<code>HTML</code>、<code>CSS</code>和<code>JavaScript</code>构建，运行在Android原生的<code>WebView</code>组件中。这种方式使得UI的开发和迭代速度极快，并且能够轻松实现流畅、现代的设计效果。</p>
-                    </li>
+                        <p>整个用户界面由<code>HTML</code>、<code>CSS</code>和<code>JavaScript</code>构建，运行在Android原生的<code>WebView</code>组件中。这种方式使得UI的开发和迭代速度极快，并且能够轻松实现流畅、现代的设计效果。
+                        </p>
+FDFDFDFD                     </li>
                     <li>
                         <strong>原生后端 (Logic Layer - Kotlin):</strong>
                         <p>应用的核心逻辑由原生Kotlin代码驱动，确保了功能的稳定和高效。</p>
                         <ul style="padding-left: 20px;">
-                            <li><strong><code>BluetoothService.kt</code>:</strong> 这是应用的“心脏”。它是一个<code>Foreground Service</code>（前台服务），被赋予了高系统优先级，能确保在App退至后台或锁屏后，蓝牙连接依然保持活动，不会被系统轻易“杀死”。它管理着蓝牙的连接、数据读写的所有线程，并作为定时任务的最终执行者。</li>
-                            <li><strong><code>AlarmReceiver.kt</code>:</strong> 这是一个<code>BroadcastReceiver</code>（广播接收器），专门用于接收由系统<code>AlarmManager</code>在精确时间点发出的“闹钟”广播。一旦接收到广播，它会立即唤醒<code>BluetoothService</code>去执行预设的指令，这是实现精准、可靠后台定时任务的关键。</li>
-                            <li><strong><code>MainActivity.kt</code>:</strong> 作为应用的主活动页，它承载着<code>WebView</code>，是UI和用户交互的入口。同时，它也负责处理蓝牙、通知等系统权限的请求，并作为原生后端与前端UI之间的“协调员”。</li>
+                            <li><strong><code>BluetoothService.kt</code>:</strong> 这是应用的“心脏”。它是一个<code>Foreground
+                                Service</code>（前台服务），被赋予了高系统优先级，能确保在App退至后台或锁屏后，蓝牙连接依然保持活动，不会被系统轻易“杀死”。它管理着蓝牙的连接、数据读写的所有线程，并作为定时任务的最终执行者。
+                            </li>
+                            <li><strong><code>AlarmReceiver.kt</code>:</strong> 这是一个<code>BroadcastReceiver</code>（广播接收器），专门用于接收由系统<code>AlarmManager</code>在精确时间点发出的“闹钟”广播。一旦接收到广播，它会立即唤醒<code>BluetoothService</code>去执行预设的指令，这是实现精准、可靠后台定时任务的关键。
+                            </li>
+                            <li><strong><code>MainActivity.kt</code>:</strong> 作为应用的主活动页，它承载着<code>WebView</code>，是UI和用户交互的入口。同时，它也负责处理蓝牙、通知等系统权限的请求，并作为原生后端与前端UI之间的“协调员”。
+                            </li>
                         </ul>
                     </li>
                     <li>
                         <strong>通信桥梁 (Bridge):</strong>
                         <p>前端与后端通过一套高效的双向通信机制协同工作：</p>
                         <ul style="padding-left: 20px;">
-                            <li><strong>JS -> Native:</strong> 前端通过<code>@JavascriptInterface</code>暴露的<code>BTBridge</code>对象，可以直接调用<code>MainActivity.kt</code>中定义的Kotlin函数，如<code>BTBridge.sendData("A0...")</code>，从而向原生层下达指令。</li>
-                            <li><strong>Native -> JS:</strong> 原生层（如<code>BluetoothService</code>）通过发送广播（<code>Broadcast</code>）来通知状态变化。<code>MainActivity</code>接收到广播后，会通过<code>WebView.evaluateJavascript(...)</code>方法执行相应的JS函数（如<code>window.onData(...)</code>），从而将原生层的事件实时反馈到UI上，实现界面数据的动态更新。</li>
+                            <li><strong>JS -> Native:</strong>
+                                前端通过<code>@JavascriptInterface</code>暴露的<code>BTBridge</code>对象，可以直接调用<code>MainActivity.kt</code>中定义的Kotlin函数，如<code>BTBridge.sendData("A0...")</code>，从而向原生层下达指令。
+                            </li>
+                            <li><strong>Native -> JS:</strong>
+                                原生层（如<code>BluetoothService</code>）通过发送广播（<code>Broadcast</code>）来通知状态变化。<code>MainActivity</code>接收到广播后，会通过<code>WebView.evaluateJavascript(...)</code>方法执行相应的JS函数（如<code>window.onData(...)</code>），从而将原生层的事件实时反馈到UI上，实现界面数据的动态更新。
+                            </li>
                         </ul>
                     </li>
                 </ul>
@@ -547,13 +657,19 @@
                     <span class="material-symbols-outlined icon">favorite</span>
                     <h2>支持与开源</h2>
                 </div>
-                <p>如果这个项目对您有帮助，欢迎通过以下方式支持我。您的鼓励是我持续更新和创作的动力！</p>
+                <p>
+                    如果这个项目对您有帮助，欢迎通过以下方式支持我。您的鼓励是我持续更新和创作的动力！</p>
                 <div class="support-links" style="display: flex; gap: 16px; margin-top: 16px;">
-                    <a href="https://github.com/shj56166/kongzhi2" target="_blank" style="flex: 1; text-decoration: none; padding: 12px; border-radius: 12px; background-color: #333; color: white; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 500;">
-                        <svg class="icon" viewBox="0 0 16 16" fill="currentColor" height="1em" width="1em"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path></svg>
+                    <a href="https://github.com/shj56166/kongzhi2" target="_blank"
+                       style="flex: 1; text-decoration: none; padding: 12px; border-radius: 12px; background-color: #333; color: white; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 500;">
+                        <svg class="icon" viewBox="0 0 16 16" fill="currentColor" height="1em"
+                             width="1em">
+                            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
+                        </svg>
                         <span>GitHub</span>
                     </a>
-                    <a href="#paymentModal" style="flex: 1; text-decoration: none; padding: 12px; border-radius: 12px; background-color: #FFDD00; color: #3D2B1F; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 500; cursor: pointer;">
+                    <a href="#paymentModal"
+                       style="flex: 1; text-decoration: none; padding: 12px; border-radius: 12px; background-color: #FFDD00; color: #3D2B1F; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 500; cursor: pointer;">
                         <span class="material-symbols-outlined icon">coffee</span>
                         <span>请我喝杯咖啡</span>
                     </a>
@@ -562,7 +678,8 @@
 
             <div id="paymentModal" class="payment-modal-overlay">
                 <div class="payment-modal-content">
-                    <a href="#" style="position: absolute; top: 16px; right: 20px; font-size: 28px; text-decoration: none; color: var(--color-on-surface-variant);">&times;</a>
+                    <a href="#"
+                       style="position: absolute; top: 16px; right: 20px; font-size: 28px; text-decoration: none; color: var(--color-on-surface-variant);">&times;</a>
 
                     <div class="payment-toggle">
                         <input type="radio" name="payment-method" id="wx-radio" checked>
@@ -573,8 +690,10 @@
                     </div>
 
                     <div class="qr-image-container">
-                        <img id="wx-qr" class="qr-image" src="file:///android_asset/images/wx.png" alt="微信支付二维码">
-                        <img id="zfb-qr" class="qr-image" src="file:///android_asset/images/zfb.jpg" alt="支付宝二维码">
+                        <img id="wx-qr" class="qr-image" src="file:///android_asset/images/wx.png"
+                             alt="微信支付二维码">
+                        <img id="zfb-qr" class="qr-image" src="file:///android_asset/images/zfb.jpg"
+                             alt="支付宝二维码">
                     </div>
                 </div>
             </div>
@@ -601,7 +720,7 @@
 </div>
 
 <md-fab id="bluetoothFab" aria-label="蓝牙连接">
-    <span class="material-symbols-outlined" slot="icon">bluetooth</span>
+    <span class="material-symbols-outlined" slot="icon">bluetooth_searching</span>
 </md-fab>
 <div id="scanDialog">
     <div class="scan-dialog-content">
@@ -611,6 +730,8 @@
                 <span class="material-symbols-outlined">close</span>
             </button>
         </div>
+
+        <div class="scan-animation-bar"></div>
 
         <ul id="deviceScanList">
         </ul>
@@ -626,7 +747,8 @@
     <div class="modal-content">
         <div class="modal-header">
             <h2>编辑继电器</h2>
-            <button class="delete-icon-btn" id="deleteRelayIcon" aria-label="删除继电器"><span class="material-symbols-outlined">delete</span></button>
+            <button class="delete-icon-btn" id="deleteRelayIcon" aria-label="删除继电器"><span
+                    class="material-symbols-outlined">delete</span></button>
         </div>
         <input type="hidden" id="editRelayIndex">
         <md-outlined-text-field label="继电器名称" id="editRelayName"></md-outlined-text-field>
@@ -646,29 +768,43 @@
 <div id="statsPanel">
     <h3>调试仪表盘</h3>
     <div class="stats-grid">
-        <div class="stat-item"><div class="value sent-success" id="sentSuccessCount">0</div><div class="label">发送成功</div></div>
-        <div class="stat-item"><div class="value sent-fail" id="sentFailCount">0</div><div class="label">发送失败</div></div>
-        <div class="stat-item"><div class="value received" id="receivedCount">0</div><div class="label">已接收</div></div>
+        <div class="stat-item">
+            <div class="value sent-success" id="sentSuccessCount">0</div>
+            <div class="label">发送成功</div>
+        </div>
+        <div class="stat-item">
+            <div class="value sent-fail" id="sentFailCount">0</div>
+            <div class="label">发送失败</div>
+        </div>
+        <div class="stat-item">
+            <div class="value received" id="receivedCount">0</div>
+            <div class="label">已接收</div>
+        </div>
     </div>
     <div class="panel-row">
         <div class="label">自动滚动</div>
-        <label class="switch"><input type="checkbox" id="autoScrollToggle" checked><span class="slider round"></span></label>
+        <label class="switch"><input type="checkbox" id="autoScrollToggle" checked><span
+                class="slider round"></span></label>
     </div>
     <hr style="border: none; border-top: 1px solid var(--color-outline); margin: var(--gap-m) 0;">
     <div class="format-toggle-group">
         <div class="toggle-container">
             <div class="toggle-label">发送格式</div>
             <div class="format-toggle" id="sendFormatToggle">
-                <input type="radio" name="sendFormat" value="hex" id="sendHex" checked><label for="sendHex">hex</label>
-                <input type="radio" name="sendFormat" value="text" id="sendText"><label for="sendText">文本</label>
+                <input type="radio" name="sendFormat" value="hex" id="sendHex" checked><label
+                    for="sendHex">hex</label>
+                <input type="radio" name="sendFormat" value="text" id="sendText"><label
+                    for="sendText">文本</label>
                 <div class="toggle-slider"></div>
             </div>
         </div>
         <div class="toggle-container">
             <div class="toggle-label">接收格式</div>
             <div class="format-toggle" id="receiveFormatToggle">
-                <input type="radio" name="receiveFormat" value="hex" id="receiveHex" checked><label for="receiveHex">hex</label>
-                <input type="radio" name="receiveFormat" value="text" id="receiveText"><label for="receiveText">文本</label>
+                <input type="radio" name="receiveFormat" value="hex" id="receiveHex" checked><label
+                    for="receiveHex">hex</label>
+                <input type="radio" name="receiveFormat" value="text" id="receiveText"><label
+                    for="receiveText">文本</label>
                 <div class="toggle-slider"></div>
             </div>
         </div>
@@ -824,54 +960,6 @@
         navItems.forEach(item => item.addEventListener('click', () => switchPage(item.dataset.page)));
 
         const BTBridge = window.BTBridge;
-
-            window.onConnectionStateChange = (state, deviceName, deviceAddress) => {
-                const STATE_DISCONNECTED = 0;
-                const STATE_CONNECTING = 1;
-                const STATE_CONNECTED = 2;
-
-                const wasConnected = AppState.isBtConnected;
-                AppState.isBtConnected = (state === STATE_CONNECTED);
-
-                // [核心修改] 记录或清除连接的设备信息
-                if(AppState.isBtConnected){
-                    AppState.connectedDeviceName = deviceName;
-                    AppState.connectedDeviceAddress = deviceAddress;
-                    // 如果连接成功，更新历史记录
-                    if (window.ScanDialog) ScanDialog.updateConnectionHistory(deviceAddress);
-                } else {
-                    AppState.connectedDeviceName = null;
-                    AppState.connectedDeviceAddress = null;
-                }
-
-                let statusText, dotClass;
-
-                switch (state) {
-                    case STATE_CONNECTED:
-                        statusText = `已连接到 ${deviceName}`;
-                        dotClass = 'connected';
-                        showToast('蓝牙连接成功！');
-                        break;
-                    case STATE_CONNECTING:
-                        statusText = '正在连接...';
-                        dotClass = 'disconnected';
-                        break;
-                    case STATE_DISCONNECTED:
-                    default:
-                        statusText = '未连接';
-                        dotClass = 'disconnected';
-                        if (wasConnected) {
-                            showToast('蓝牙已断开');
-                        }
-                        break;
-                }
-
-                globalBtStateText.textContent = statusText;
-                globalBtStateDot.className = `status-dot ${dotClass}`;
-
-                LogPage.addLog({ type: 'system', content: statusText, description: `设备: ${deviceName || 'N/A'}` });
-                if (!AppState.isBtConnected) RelayPage.stopAllAutoCycles();
-            };
 
             window.onError = (message) => {
                 showToast(`错误: ${message}`);
@@ -1443,189 +1531,286 @@
         window.onDiscoveryFinished = () => ScanDialog.onScanFinished();
 
         // [新增] 扫描弹窗模块
-        const ScanDialog = (() => {
-            const scanDialog = document.getElementById('scanDialog');
-            const closeScanDialogBtn = document.getElementById('closeScanDialogBtn');
-            const rescanBtn = document.getElementById('rescanBtn');
-            const deviceScanList = document.getElementById('deviceScanList');
-            const disconnectDialogBtn = document.getElementById('disconnectDialogBtn');
+const ScanDialog = (() => {
+    const scanDialog = document.getElementById('scanDialog');
+    const closeScanDialogBtn = document.getElementById('closeScanDialogBtn');
+    const rescanBtn = document.getElementById('rescanBtn');
+    const deviceScanList = document.getElementById('deviceScanList');
+    const disconnectDialogBtn = document.getElementById('disconnectDialogBtn');
 
-            const RECENT_DEVICES_KEY = 'bt_recent_devices';
-            let discoveredDevices = [];
-            let isScanning = false;
+    const RECENT_DEVICES_KEY = 'bt_recent_devices';
+    let isScanning = false;
 
-            const loadConnectionHistory = () => {
-                const history = localStorage.getItem(RECENT_DEVICES_KEY);
-                return history ? JSON.parse(history) : [];
-            };
+    let renderedDevices = new Set();
 
-            const updateConnectionHistory = (newAddress) => {
-                let history = loadConnectionHistory();
-                history = history.filter(address => address !== newAddress);
-                history.unshift(newAddress);
-                const updatedHistory = history.slice(0, 3);
-                localStorage.setItem(RECENT_DEVICES_KEY, JSON.stringify(updatedHistory));
-            };
+    const animateItemIn = (element, duration = 700) => {
+        const start = performance.now();
+        const ease = (t) => 1 - Math.pow(1 - t, 3);
+        const tick = (now) => {
+            const elapsed = now - start;
+            const progress = Math.min(elapsed / duration, 1);
+            const easedProgress = ease(progress);
+            const opacity = easedProgress;
+            const translateY = 30 * (1 - easedProgress);
+            const blur = 8 * (1 - easedProgress);
+            element.style.opacity = opacity;
+            element.style.transform = `translateY(${translateY}px)`;
+            element.style.webkitTransform = `translateY(${translateY}px)`;
+            element.style.filter = `blur(${blur}px)`;
+            element.style.webkitFilter = `blur(${blur}px)`;
+            if (progress < 1) {
+                requestAnimationFrame(tick);
+            } else {
+                element.style.transform = '';
+                element.style.webkitTransform = '';
+                element.style.filter = '';
+                element.style.webkitFilter = '';
+            }
+        };
+        requestAnimationFrame(tick);
+    };
 
-            const show = () => {
-                scanDialog.classList.add('show');
-                BTBridge.startScan();
-            };
+    // [移植代码] 新增：加载连接历史的函数
+    const loadConnectionHistory = () => {
+        const history = localStorage.getItem(RECENT_DEVICES_KEY);
+        return history ? JSON.parse(history) : [];
+    };
 
-            const hide = () => {
-                BTBridge.stopScan();
-                scanDialog.classList.remove('show');
-            };
+    // [移植代码] 新增：更新连接历史的函数
+    const updateConnectionHistory = (newAddress) => {
+        let history = loadConnectionHistory();
+        history = history.filter(address => address !== newAddress);
+        history.unshift(newAddress);
+        const updatedHistory = history.slice(0, 3);
+        localStorage.setItem(RECENT_DEVICES_KEY, JSON.stringify(updatedHistory));
+        LogPage.addLog({ type: 'system', content: `地址 ${newAddress}`, description: '更新最近连接历史' });
+    };
 
-            // [修正位置] 这个函数应该在这里，作为 ScanDialog 模块的独立函数
-            const getIconForDeviceType = (deviceClass) => {
-                // 根据安卓蓝牙API返回的设备类别代码进行判断
-                // 参考: https://developer.android.com/reference/android/bluetooth/BluetoothClass.Device
-                switch (deviceClass) {
-                    case 1028: case 1032: case 1056: return 'headset'; //穿戴式设备: 耳机, 智能手表
-                    case 1040: case 1044: case 1048: case 1064: return 'speaker'; // 音频设备: 音箱, 车载音响
-                    case 260: case 264: case 268: return 'computer'; // 电脑
-                    case 512: case 516: case 520: case 524: case 528: case 532: return 'phone_iphone'; // 手机
-                    case 1344: return 'stadia_controller'; // 外设: 手柄
-                    case 1280: return 'keyboard'; // 外设: 键盘
-                    default: return 'bluetooth'; // 其他或未知
-                }
-            };
+    const show = () => {
+        scanDialog.classList.add('show');
+        if (window.BTBridge) BTBridge.startScan();
+    };
 
-            const renderDeviceList = () => {
-                deviceScanList.innerHTML = '';
-                const history = loadConnectionHistory();
-                const connectedDeviceAddress = AppState.isBtConnected ? AppState.connectedDeviceAddress : null;
+    const hide = () => {
+        if (window.BTBridge) BTBridge.stopScan();
+        scanDialog.classList.remove('show');
+    };
 
-                let recentDevices = [];
-                const otherDevices = [];
-                const allDisplayDevices = [...discoveredDevices];
+    const getIconForDeviceType = (deviceClass) => {
+        switch (deviceClass) {
+            case 1028: case 1032: case 1056: return 'headset';
+            case 1040: case 1044: case 1048: case 1064: return 'speaker';
+            case 260: case 264: case 268: return 'computer';
+            case 512: case 516: case 520: case 524: case 528: case 532: return 'phone_iphone';
+            case 1344: return 'stadia_controller';
+            case 1280: return 'keyboard';
+            default: return 'bluetooth';
+        }
+    };
 
-                if (connectedDeviceAddress && !allDisplayDevices.some(d => d.address === connectedDeviceAddress)) {
-                    allDisplayDevices.unshift({ name: AppState.connectedDeviceName, address: connectedDeviceAddress, type: 0 });
-                }
-
-                let displayHistory = [...history];
-                if (connectedDeviceAddress) {
-                    displayHistory = displayHistory.filter(addr => addr !== connectedDeviceAddress);
-                    displayHistory.unshift(connectedDeviceAddress);
-                }
-
-                const recentAddresses = new Set(displayHistory.slice(0, 3));
-
-                allDisplayDevices.forEach(device => {
-                    if (recentAddresses.has(device.address)) {
-                        recentDevices.push(device);
-                    } else {
-                        otherDevices.push(device);
-                    }
-                });
-
-                recentDevices.sort((a, b) => displayHistory.indexOf(a.address) - displayHistory.indexOf(b.address));
-
-                if (recentDevices.length > 0) {
-                    recentDevices.forEach((device, index) => {
-                        const isConnected = connectedDeviceAddress && device.address === connectedDeviceAddress;
-                        const item = createDeviceItem(device, true, isConnected, index);
-                        deviceScanList.appendChild(item);
-                    });
-                }
-
-                otherDevices.forEach(device => {
-                    const item = createDeviceItem(device, false, false, -1);
-                    deviceScanList.appendChild(item);
-                });
-
-                if(isScanning && allDisplayDevices.length === 0){
-                    deviceScanList.innerHTML = '<li style="padding: 16px; text-align: center; color: var(--color-on-surface-variant);">正在扫描附近的设备...</li>';
-                }
-            };
-
-            const createDeviceItem = (device, isRecent, isConnected, recentIndex) => {
-                const listItem = document.createElement('li');
-                listItem.className = 'device-item';
-                listItem.dataset.address = device.address;
-
-                let badgeHTML = '';
-                if (isConnected) {
-                    listItem.classList.add('is-connected');
-                    badgeHTML = '<span class="device-status-badge connected">正在连接</span>';
-                } else if (isRecent) {
-                    listItem.classList.add(`recent-device-${recentIndex}`);
-                    badgeHTML = '<span class="device-status-badge recent">最近连接</span>';
-                }
-
-                const iconName = getIconForDeviceType(device.type || 0);
-
-                listItem.innerHTML = `
-                    <span class="material-symbols-outlined">${iconName}</span>
-                    <div class="device-info">
-                        <span class="device-name">${device.name || '未知设备'}</span>
-                        <span class="device-address">${device.address}</span>
-                    </div>
-                    ${badgeHTML}
-                `;
-
-                if (!isConnected) {
-                    listItem.addEventListener('click', () => {
-                        BTBridge.connect(device.address);
-                        hide();
-                    });
-                }
-                return listItem;
-            };
-
-            const disconnect = () => {
-                BTBridge.disconnect();
+    const createDeviceItem = (device, isRecent, isConnected) => {
+        const listItem = document.createElement('li');
+        listItem.className = 'device-item';
+        listItem.dataset.address = device.address;
+        let badgeHTML = '';
+        if (isConnected) {
+            listItem.classList.add('is-connected');
+            badgeHTML = '<span class="device-status-badge connected">已连接</span>';
+        } else if (isRecent) {
+            // [移植UI] 为最近连接设备添加特殊class和徽章
+            listItem.classList.add('recent-device-0'); // 使用统一高亮样式
+            badgeHTML = '<span class="device-status-badge recent">最近连接</span>';
+        }
+        const iconName = getIconForDeviceType(device.type || 0);
+        listItem.innerHTML = `
+            <span class="material-symbols-outlined">${iconName}</span>
+            <div class="device-info">
+                <span class="device-name">${device.name || '未知设备'}</span>
+                <span class="device-address">${device.address}</span>
+            </div>
+            ${badgeHTML}
+        `;
+        if (!isConnected) {
+            listItem.addEventListener('click', () => {
+                updateConnectionHistory(device.address);
+                if(window.BTBridge) BTBridge.connect(device.address);
                 hide();
-            };
+            });
+        }
+        return listItem;
+    };
 
-            const init = () => {
-                closeScanDialogBtn.addEventListener('click', hide);
-                disconnectDialogBtn.addEventListener('click', disconnect);
-                rescanBtn.addEventListener('click', () => BTBridge.startScan()); // <-- 修正为 startScan()
-                scanDialog.addEventListener('click', (event) => { if (event.target === scanDialog) hide(); });
-            };
+    // [修改] 增强 renderInitialList 函数以显示“最近连接”
+    const renderInitialList = () => {
+        deviceScanList.innerHTML = '';
+        renderedDevices.clear();
 
-            return {
-                init,
-                show,
-                hide,
-                updateConnectionHistory,
-                onScanStarted: () => {
-                    isScanning = true;
-                    discoveredDevices = [];
-                    disconnectDialogBtn.style.visibility = AppState.isBtConnected ? 'visible' : 'hidden';
-                    rescanBtn.innerHTML = '正在扫描...'; // [优化] 增加扫描状态反馈
-                    rescanBtn.disabled = true;           // [优化] 扫描时禁用按钮
-                    renderDeviceList();
-                },
-                onDeviceFound: (name, address, type) => {
-                  const existingDevice = discoveredDevices.find(d => d.address === address);
-                  if (existingDevice) {
-                      // [优化] 如果设备已存在，并且有了新的、更具体的名字，就更新它
-                      if (name && name !== "未知设备" && existingDevice.name !== name) {
-                         existingDevice.name = name;
-                      }
-                  } else {
-                        // 如果是新设备，则添加到列表
-                        discoveredDevices.push({ name, address, type });
-                  }
-                  // 统一调用渲染，确保列表能实时更新
-                  renderDeviceList();
-                }, // <--- [核心修复] 在这里补上一个逗号
+        const history = loadConnectionHistory();
+        const connectedDeviceAddress = AppState.isBtConnected ? AppState.connectedDeviceAddress : null;
 
-                onScanFinished: () => {
-                    isScanning = false;
-                    rescanBtn.innerHTML = '重新扫描'; // [优化] 恢复按钮状态
-                    rescanBtn.disabled = false;          // [优化] 恢复按钮可用
-                    // 如果扫描结束了列表还是空的，显示提示
-                    if (discoveredDevices.length === 0) {
-                        deviceScanList.innerHTML = '<li style="padding: 16px; text-align: center; color: var(--color-on-surface-variant);">未发现任何设备，请确保设备已开启并靠近手机。</li>';
-                    }
+        let devicesToShow = [];
+
+        // 1. 优先添加当前已连接的设备
+        if(connectedDeviceAddress) {
+            devicesToShow.push({
+                name: AppState.connectedDeviceName,
+                address: connectedDeviceAddress,
+                type: 0,
+                isConnected: true,
+                isRecent: false
+            });
+            renderedDevices.add(connectedDeviceAddress);
+        }
+
+        // 2. 接着添加最近连接的设备（排除已添加的当前连接设备）
+        history.forEach(address => {
+            if (!renderedDevices.has(address)) {
+                 devicesToShow.push({
+                    name: '未知设备', // 名字未知，仅有地址
+                    address: address,
+                    type: 0,
+                    isConnected: false,
+                    isRecent: true
+                });
+                renderedDevices.add(address);
+            }
+        });
+
+        // 3. 渲染这些预置设备
+        devicesToShow.forEach(deviceData => {
+            const item = createDeviceItem(deviceData, deviceData.isRecent, deviceData.isConnected);
+            item.style.opacity = 1; // 直接显示，不播放动画
+            deviceScanList.appendChild(item);
+        });
+    };
+
+    const disconnect = () => {
+        if(window.BTBridge) BTBridge.disconnect();
+        hide();
+    };
+
+    return {
+        init: () => {
+            closeScanDialogBtn.addEventListener('click', hide);
+            disconnectDialogBtn.addEventListener('click', disconnect);
+            rescanBtn.addEventListener('click', () => {
+                if(window.BTBridge) BTBridge.startScan();
+            });
+            scanDialog.addEventListener('click', (event) => { if (event.target === scanDialog) hide(); });
+
+            try {
+                window.customElements.whenDefined('md-text-button').then(() => {
+                    disconnectDialogBtn.style.setProperty('--md-text-button-label-text-color', 'var(--color-accent)');
+                    rescanBtn.style.setProperty('--md-text-button-label-text-color', 'var(--color-accent)');
+                });
+            } catch (e) {
+                setTimeout(() => {
+                    disconnectDialogBtn.style.setProperty('--md-text-button-label-text-color', 'var(--color-accent)');
+                    rescanBtn.style.setProperty('--md-text-button-label-text-color', 'var(--color-accent)');
+                }, 100);
+            }
+        },
+        show,
+        // [修改] 暴露 updateConnectionHistory 接口
+        updateConnectionHistory,
+        onScanStarted: () => {
+            isScanning = true;
+            disconnectDialogBtn.style.visibility = AppState.isBtConnected ? 'visible' : 'hidden';
+            rescanBtn.innerHTML = '正在扫描...';
+            rescanBtn.disabled = true;
+            renderInitialList();
+            if (deviceScanList.childElementCount === 0) {
+                deviceScanList.innerHTML = '<li class="list-placeholder" style="padding: 16px; text-align: center; color: var(--color-on-surface-variant);">正在扫描附近的设备...</li>';
+            }
+        },
+        onDeviceFound: (name, address, type) => {
+            // 检查最近设备列表里是否已有此设备，如有则更新名字
+            const existingItem = deviceScanList.querySelector(`.device-item[data-address="${address}"]`);
+            if (existingItem) {
+                const nameEl = existingItem.querySelector('.device-name');
+                if (nameEl && nameEl.textContent === '未知设备') {
+                   nameEl.textContent = name;
                 }
-            };
-        })();
+                return; // 不重复添加
+            }
+            if (renderedDevices.has(address)) {
+                return;
+            }
+
+            const placeholder = deviceScanList.querySelector('.list-placeholder');
+            if(placeholder) placeholder.remove();
+
+            renderedDevices.add(address);
+            const deviceData = { name, address, type };
+            const isRecent = loadConnectionHistory().includes(address);
+            const item = createDeviceItem(deviceData, isRecent, false);
+            deviceScanList.appendChild(item);
+            animateItemIn(item);
+        },
+        onScanFinished: () => {
+            isScanning = false;
+            rescanBtn.innerHTML = '重新扫描';
+            rescanBtn.disabled = false;
+            const scanningPlaceholder = deviceScanList.querySelector('.list-placeholder');
+            if (scanningPlaceholder) {
+                scanningPlaceholder.remove();
+            }
+            if (deviceScanList.childElementCount === 0) {
+                deviceScanList.innerHTML = '<li class="list-placeholder" style="padding: 16px; text-align: center; color: var(--color-on-surface-variant);">未发现任何设备。</li>';
+            }
+        }
+   };
+})();
+
+// 修改后的 onConnectionStateChange 函数
+window.onConnectionStateChange = (state, deviceName, deviceAddress) => {
+    const STATE_DISCONNECTED = 0;
+    const STATE_CONNECTING = 1;
+    const STATE_CONNECTED = 2;
+
+    const wasConnected = AppState.isBtConnected;
+    AppState.isBtConnected = (state === STATE_CONNECTED);
+
+    if(AppState.isBtConnected){
+        AppState.connectedDeviceName = deviceName;
+        AppState.connectedDeviceAddress = deviceAddress;
+
+        // [修改] 连接成功时，调用ScanDialog的函数来更新历史记录
+
+
+    } else {
+        AppState.connectedDeviceName = null;
+        AppState.connectedDeviceAddress = null;
+    }
+
+    let statusText, dotClass;
+
+    switch (state) {
+        case STATE_CONNECTED:
+            statusText = `已连接到 ${deviceName}`;
+            dotClass = 'connected';
+            showToast('蓝牙连接成功！');
+            break;
+        case STATE_CONNECTING:
+            statusText = '正在连接...';
+            dotClass = 'disconnected'; // 连接中状态仍显示未连接
+            break;
+        case STATE_DISCONNECTED:
+        default:
+            statusText = '未连接';
+            dotClass = 'disconnected';
+            if (wasConnected) {
+                showToast('蓝牙已断开');
+            }
+            break;
+    }
+
+    globalBtStateText.textContent = statusText;
+    globalBtStateDot.className = `status-dot ${dotClass}`;
+
+    LogPage.addLog({ type: 'system', content: statusText, description: `设备: ${deviceName || 'N/A'}` });
+    if (!AppState.isBtConnected) RelayPage.stopAllAutoCycles();
+};
 
         // --- App Initialization ---
         const initializeApp = () => {
@@ -1636,13 +1821,7 @@
             ScanDialog.init();
 
             bluetoothFab.onclick = () => {
-                if (AppState.isBtConnected) {
-                     showConfirmDialog('确认要断开当前连接吗？', () => {
-                        BTBridge.disconnect();
-                    });
-                } else {
-                    ScanDialog.show();
-                }
+                ScanDialog.show();
             };
 
             const closePermissionDialog = () => {

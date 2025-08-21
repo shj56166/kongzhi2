@@ -23,14 +23,14 @@ import android.os.Looper
 import android.os.PowerManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import androidx.core.content.edit // [修改] KTX 优化
+import androidx.core.content.edit
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
-import java.util.Locale // [修改] 为 String.format 增加
+import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
@@ -67,6 +67,7 @@ class BluetoothService : Service() {
         }
     }
 
+    // 用于接收系统发现的设备
     private val discoveryReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.action == BluetoothDevice.ACTION_FOUND) {
@@ -78,8 +79,8 @@ class BluetoothService : Service() {
                         intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
                     }
 
-                if (device != null) {
-                    val deviceName = device.name ?: "未知设备"
+                if (device != null && device.name != null) { // 增加一个判断，避免发送没有名字的设备
+                    val deviceName = device.name
                     val deviceType = device.bluetoothClass?.deviceClass ?: 0
 
                     Log.d("BluetoothService", "Discovered device: $deviceName - ${device.address}")
@@ -94,6 +95,20 @@ class BluetoothService : Service() {
         }
     }
 
+    // [新增] 用于接收系统扫描状态的广播接收器
+    private val systemDiscoveryReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            when (intent.action) {
+                BluetoothAdapter.ACTION_DISCOVERY_FINISHED -> {
+                    Log.d("BluetoothService", "System discovery finished. Broadcasting to UI.")
+                    // 转发给 MainActivity
+                    localBroadcastManager.sendBroadcast(Intent(ACTION_DISCOVERY_FINISHED))
+                }
+            }
+        }
+    }
+
+
     companion object {
         const val STATE_DISCONNECTED = 0
         const val STATE_CONNECTING = 1
@@ -105,6 +120,11 @@ class BluetoothService : Service() {
         const val ACTION_TIMER_UPDATE = "com.kongzhi2.myapplication.TIMER_UPDATE"
         const val ACTION_EXECUTE_TIMER_COMMAND = "com.kongzhi2.myapplication.EXECUTE_TIMER_COMMAND"
         const val ACTION_DEVICE_FOUND = "com.kongzhi2.myapplication.DEVICE_FOUND"
+
+        // [新增] 定义新的广播 Action
+        const val ACTION_DISCOVERY_STARTED = "com.kongzhi2.myapplication.DISCOVERY_STARTED"
+        const val ACTION_DISCOVERY_FINISHED = "com.kongzhi2.myapplication.DISCOVERY_FINISHED"
+
 
         const val EXTRA_STATE = "extra_state"
         const val EXTRA_DEVICE_NAME = "extra_device_name"
@@ -135,8 +155,13 @@ class BluetoothService : Service() {
         createNotificationChannel()
         loadStateFromPrefs()
 
+        // 注册设备发现的广播
         val filter = IntentFilter(BluetoothDevice.ACTION_FOUND)
         registerReceiver(discoveryReceiver, filter)
+
+        // [新增] 注册系统扫描状态的广播
+        val systemFilter = IntentFilter(BluetoothAdapter.ACTION_DISCOVERY_FINISHED)
+        registerReceiver(systemDiscoveryReceiver, systemFilter)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -161,8 +186,10 @@ class BluetoothService : Service() {
 
         try {
             unregisterReceiver(discoveryReceiver)
+            // [新增] 注销新的广播接收器
+            unregisterReceiver(systemDiscoveryReceiver)
         } catch (e: IllegalArgumentException) {
-            Log.w("BluetoothService", "Discovery receiver not registered at destroy, skipping unregister.")
+            Log.w("BluetoothService", "Receiver not registered at destroy, skipping unregister.")
         }
     }
 
@@ -172,7 +199,9 @@ class BluetoothService : Service() {
             bluetoothAdapter?.cancelDiscovery()
         }
         bluetoothAdapter?.startDiscovery()
-        Log.d("BluetoothService", "Bluetooth discovery started.")
+        // [新增] 发送扫描开始的广播给 MainActivity
+        localBroadcastManager.sendBroadcast(Intent(ACTION_DISCOVERY_STARTED))
+        Log.d("BluetoothService", "Bluetooth discovery started and broadcast sent.")
     }
 
     @SuppressLint("MissingPermission")
@@ -182,6 +211,10 @@ class BluetoothService : Service() {
         }
         Log.d("BluetoothService", "Bluetooth discovery stopped.")
     }
+
+    // ... (其他函数保持不变)
+    // ... (executeTimerCommand, connect, disconnect, sendData, etc. are unchanged)
+    // ... (只需确保将以上修改应用到你的文件中即可)
 
     private fun executeTimerCommand(taskId: String, command: String) {
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
@@ -258,23 +291,30 @@ class BluetoothService : Service() {
 
     fun requestFullStatusUpdate() {
         Log.d("BluetoothService", "Full status update requested. State: $connectionState")
-        broadcastConnectionState(connectionState, deviceName ?: "未连接")
+        broadcastConnectionState(connectionState, deviceName ?: "未连接", lastDeviceAddress)
         broadcastTimerUpdate()
     }
 
-    private fun setState(state: Int, name: String?) {
-        if (connectionState == state && this.deviceName == name) return
+    // BluetoothService.kt 中
+    private fun setState(state: Int, name: String?, address: String? = null) {
         connectionState = state
         this.deviceName = name
-        Log.d("BluetoothService", "Connection state changed to $state, Device: $name")
-        broadcastConnectionState(state, name ?: "未连接")
+        // 当连接成功时，我们才更新并保存 lastDeviceAddress
+        if (state == STATE_CONNECTED && address != null) {
+            lastDeviceAddress = address
+            saveStateToPrefs()
+        }
+        Log.d("BluetoothService", "Connection state changed to $state, Device: $name, Address: $address")
+        broadcastConnectionState(state, name ?: "未连接", address)
         updateNotification()
     }
 
-    private fun broadcastConnectionState(state: Int, name: String) {
+    private fun broadcastConnectionState(state: Int, name: String, address: String?) {
         val intent = Intent(ACTION_STATE_CHANGED).apply {
             putExtra(EXTRA_STATE, state)
             putExtra(EXTRA_DEVICE_NAME, name)
+            // 只有在地址不为空时才把它放进 Intent
+            address?.let { putExtra(EXTRA_DEVICE_ADDRESS, it) }
         }
         localBroadcastManager.sendBroadcast(intent)
     }
@@ -366,14 +406,12 @@ class BluetoothService : Service() {
 
     private fun saveTimersToPrefs() {
         val timersJson = gson.toJson(activeTimers)
-        // [修改] 使用 KTX 优化
         getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
             putString(PREFS_KEY_TIMERS, timersJson)
         }
     }
 
     private fun saveStateToPrefs() {
-        // [修改] 使用 KTX 优化
         getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
             putString(PREFS_KEY_LAST_DEVICE, lastDeviceAddress)
         }
@@ -405,7 +443,7 @@ class BluetoothService : Service() {
                 synchronized(this@BluetoothService) {
                     connectedThread = ConnectedThread(mmSocket!!)
                     connectedThread?.start()
-                    setState(STATE_CONNECTED, device.name)
+                    setState(STATE_CONNECTED, device.name, device.address)
                     onConnectedCallback?.invoke()
                 }
             } catch (e: IOException) {
@@ -532,12 +570,10 @@ class BluetoothService : Service() {
         }
         val nextTask = activeTimers.values.minByOrNull { it.triggerAt } ?: return "没有正在运行的定时任务"
         val remainingMs = nextTask.triggerAt - System.currentTimeMillis()
-        // [修改] 修复了 if as expression 必须有 else 的错误
         return if (remainingMs > 0) {
             val hours = TimeUnit.MILLISECONDS.toHours(remainingMs)
             val minutes = TimeUnit.MILLISECONDS.toMinutes(remainingMs) % 60
             val seconds = TimeUnit.MILLISECONDS.toSeconds(remainingMs) % 60
-            // [修改] 修复了 String.format 的 locale 警告
             val timeString = when {
                 hours > 0 -> String.format(Locale.getDefault(), "%d小时%d分后执行", hours, minutes)
                 minutes > 0 -> String.format(Locale.getDefault(), "%d分%d秒后执行", minutes, seconds)

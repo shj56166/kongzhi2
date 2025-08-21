@@ -32,7 +32,7 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import androidx.localbroadcastmanager.content.LocalBroadcastManager // [修改] 新增 import
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 
 class MainActivity : AppCompatActivity() {
 
@@ -42,7 +42,6 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var requestPermissionsLauncher: ActivityResultLauncher<Array<String>>
 
-    // [修改] 新增 LocalBroadcastManager 成员变量
     private lateinit var localBroadcastManager: LocalBroadcastManager
 
     private val bluetoothEnableLauncher = registerForActivityResult(
@@ -82,7 +81,8 @@ class MainActivity : AppCompatActivity() {
                 BluetoothService.ACTION_STATE_CHANGED -> {
                     val state = intent.getIntExtra(BluetoothService.EXTRA_STATE, BluetoothService.STATE_DISCONNECTED)
                     val deviceName = intent.getStringExtra(BluetoothService.EXTRA_DEVICE_NAME) ?: "未连接"
-                    val deviceAddress = bluetoothService?.getLastConnectedDeviceAddress() ?: ""
+                    // 直接从广播中获取地址，如果广播中没有，则为空字符串
+                    val deviceAddress = intent.getStringExtra(BluetoothService.EXTRA_DEVICE_ADDRESS) ?: ""
                     runJs("javascript:window.onConnectionStateChange($state, '$deviceName', '$deviceAddress');")
                 }
                 BluetoothService.ACTION_DATA_RECEIVED -> {
@@ -103,6 +103,15 @@ class MainActivity : AppCompatActivity() {
                     val deviceType = intent.getIntExtra(BluetoothService.EXTRA_DEVICE_TYPE, 0)
                     sendJsDeviceFound(deviceName, deviceAddress, deviceType)
                 }
+                // [新增] 处理新的广播
+                BluetoothService.ACTION_DISCOVERY_STARTED -> {
+                    Log.d("MainActivity", "Received DISCOVERY_STARTED, calling onDiscoveryStarted()")
+                    runJs("javascript:window.onDiscoveryStarted();")
+                }
+                BluetoothService.ACTION_DISCOVERY_FINISHED -> {
+                    Log.d("MainActivity", "Received DISCOVERY_FINISHED, calling onDiscoveryFinished()")
+                    runJs("javascript:window.onDiscoveryFinished();")
+                }
             }
         }
     }
@@ -111,10 +120,8 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // [修改] 初始化 LocalBroadcastManager
         localBroadcastManager = LocalBroadcastManager.getInstance(this)
 
-        // 设置状态栏样式 (为你优化了这里的逻辑)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             window.insetsController?.setSystemBarsAppearance(
                 WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS,
@@ -132,7 +139,6 @@ class MainActivity : AppCompatActivity() {
         startPermissionCheckFlow()
     }
 
-    // 设置权限请求的回调
     private fun setupPermissionsLauncher() {
         requestPermissionsLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
             val allGranted = permissions.values.all { it }
@@ -178,12 +184,18 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun checkAndRequestRuntimePermissions() {
-        val requiredPermissions = arrayOf(
-            Manifest.permission.BLUETOOTH_SCAN,
-            Manifest.permission.BLUETOOTH_CONNECT,
-            Manifest.permission.ACCESS_FINE_LOCATION,
-            Manifest.permission.POST_NOTIFICATIONS
-        )
+        // [核心修复] 根据安卓版本动态构建所需权限列表
+        val requiredPermissions = mutableListOf<String>()
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            // Android 12 (API 31) 及以上版本
+            requiredPermissions.add(Manifest.permission.BLUETOOTH_SCAN)
+            requiredPermissions.add(Manifest.permission.BLUETOOTH_CONNECT)
+            requiredPermissions.add(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            // Android 11 (API 30) 及以下版本
+            requiredPermissions.add(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
 
         val permissionsToRequest = requiredPermissions.filter {
             ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
@@ -192,7 +204,12 @@ class MainActivity : AppCompatActivity() {
         if (permissionsToRequest.isEmpty()) {
             Log.d("MainActivity", "All required permissions are already granted.")
             if (!isLocationEnabled()) {
-                showLocationDisabledDialog()
+                // 即使权限足够，在旧版本安卓上仍需检查定位服务是否开启
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+                    showLocationDisabledDialog()
+                } else {
+                    startAndBindService()
+                }
             } else {
                 startAndBindService()
             }
@@ -269,8 +286,10 @@ class MainActivity : AppCompatActivity() {
             addAction(BluetoothService.ACTION_ERROR)
             addAction(BluetoothService.ACTION_TIMER_UPDATE)
             addAction(BluetoothService.ACTION_DEVICE_FOUND)
+            // [新增] 注册新的 Action
+            addAction(BluetoothService.ACTION_DISCOVERY_STARTED)
+            addAction(BluetoothService.ACTION_DISCOVERY_FINISHED)
         }
-        // [修改] 使用 LocalBroadcastManager 注册，更稳定可靠
         localBroadcastManager.registerReceiver(broadcastReceiver, intentFilter)
     }
 
@@ -280,7 +299,6 @@ class MainActivity : AppCompatActivity() {
             unbindService(serviceConnection)
             isBound = false
         }
-        // [修改] 使用 LocalBroadcastManager 注销
         localBroadcastManager.unregisterReceiver(broadcastReceiver)
     }
 
