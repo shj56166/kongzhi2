@@ -23,7 +23,7 @@
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html, body { height: 100%; background-color: var(--color-background); color: var(--color-on-surface); font-family: 'Roboto', sans-serif; overflow: hidden;-webkit-tap-highlight-color: transparent; /* 移除移动端点击元素时的高亮背景 */ }
         .app-container { height: 100%; position: relative; }
-        .app-header { position: fixed; top: 0; left: 0; right: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 var(--padding-m); height: calc(var(--header-height) + env(safe-area-inset-top, 0px)); padding-top: env(safe-area-inset-top, 0px); background-color: var(--color-surface-container-highest); border-bottom: 1px solid var(--color-outline); z-index: 100; }
+        .app-header { position: fixed; top: 0; left: 0; right: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 var(--padding-m); height: calc(var(--header-height) + env(safe-area-inset-top, 0px) + 24px); padding-top: calc(env(safe-area-inset-top, 0px) + 24px); background-color: var(--color-surface-container-highest); border-bottom: 1px solid var(--color-outline); z-index: 100; }
         .header-title-group { display: flex; flex-direction: column; gap: 4px; }
         .header-title-group .title { font-size: 22px; font-weight: 700; background: linear-gradient(45deg, #3498db, #8e44ad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
         .status-area { display: flex; align-items: center; gap: var(--gap-s); font-size: 12px; color: var(--color-on-surface-variant); }
@@ -31,7 +31,7 @@
         .status-dot.connected { background-color: var(--color-success); }
         .status-dot.disconnected { background-color: var(--color-error); }
         .page-content { height: 100%; position: relative; }
-        .page { position: absolute; top: calc(var(--header-height) + env(safe-area-inset-top, 0px)); left: 0; right: 0; bottom: var(--nav-height); opacity: 0; visibility: hidden; transition: opacity var(--anim-duration) ease-in-out, visibility var(--anim-duration) ease-in-out; overflow-y: auto; background-color: var(--color-background); padding: var(--padding-m); }
+        .page { position: absolute; top: calc(var(--header-height) + env(safe-area-inset-top, 0px) + 24px); left: 0; right: 0; bottom: var(--nav-height); opacity: 0; visibility: hidden; transition: opacity var(--anim-duration) ease-in-out, visibility var(--anim-duration) ease-in-out; overflow-y: auto; background-color: var(--color-background); padding: var(--padding-m); }
         .page.active { opacity: 1; visibility: visible; z-index: 10; }
         .app-nav { position: fixed; bottom: 0; left: 0; right: 0; display: flex; height: var(--nav-height); background-color: var(--color-surface-container-highest); border-top: 1px solid var(--color-outline); box-shadow: 0 -2px 10px rgba(0,0,0,0.05); z-index: 100; }
         .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; cursor: pointer; color: var(--color-on-surface-variant); transition: color 0.3s; }
@@ -179,16 +179,38 @@
         /* Log Page Styles */
         #page-log { padding: 0; display: flex; flex-direction: column; overflow: hidden; }
         #logContainer { flex-grow: 1; overflow-y: auto; }
-        .log-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .log-table { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
         .log-table thead { position: sticky; top: 0; background-color: var(--color-surface-container-low); z-index: 1; }
         .log-table th { padding: 12px var(--padding-m); text-align: left; font-weight: 500; color: var(--color-on-surface-variant); border-bottom: 1px solid var(--color-outline); }
-        .log-table td { padding: 10px var(--padding-m); border-bottom: 1px solid var(--color-outline); line-height: 1.5; vertical-align: top; font-family: 'Menlo', 'Courier New', monospace; }
-        .log-row .log-type span { padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; font-family: 'Roboto', sans-serif; }
-        .log-type .sent { background-color: var(--color-accent-container); color: var(--color-on-accent-container); }
-        .log-type .received { background-color: #e8f5e9; color: #2e7d32; }
-        .log-type .system { background-color: #f3e5f5; color: #6a1b9a; }
-        .log-type .error { background-color: #fbe9e7; color: #d84315; }
-        .log-content { word-break: break-all; }
+        .log-table td {padding: 14px 24px;border-bottom: 1px solid var(--color-outline);line-height: 1.5;vertical-align: middle;}
+
+        /* [新增] 将第二列（内容）的文本和标题居中对齐，以实现视觉上的间距均衡 */
+        .log-table th:nth-child(2), .log-table td:nth-child(2) {text-align: center;}
+
+        /* [修改] 为第一列（时间/类型）设置最小宽度，防止被过度挤压 */
+        .log-table th:first-child, .log-table td:first-child { min-width: 95px; width: 95px; }
+
+        .log-timestamp-type { font-family: 'Menlo', 'Courier New', monospace; }
+        .log-timestamp-type .log-type-badge {
+            display: inline-block; /* 使其可以应用边距 */
+            margin-top: 4px;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 500;
+            font-family: 'Roboto', sans-serif;
+        }
+        .log-type-badge.sent { background-color: var(--color-accent-container); color: var(--color-on-accent-container); }
+        .log-type-badge.received { background-color: #e8f5e9; color: #2e7d32; }
+        .log-type-badge.system { background-color: #f3e5f5; color: #6a1b9a; }
+        .log-type-badge.error { background-color: #fbe9e7; color: #d84315; }
+
+        /* [修改] 让内容可以优雅地换行，适应文本和HEX */
+        .log-content {
+            font-family: 'Menlo', 'Courier New', monospace;
+            word-break: break-word;
+            white-space: pre-wrap; /* 保留空格和换行符 */
+        }
         .log-description { color: var(--color-on-surface-variant); font-family: 'Roboto', sans-serif; }
         .log-placeholder { text-align: center; margin-top: 48px; color: var(--color-on-surface-variant); }
         .log-placeholder .material-symbols-outlined { font-size: 48px; margin-bottom: var(--gap-s); }
@@ -408,6 +430,322 @@
             align-items: flex-start;
             gap: var(--padding-m);
         }
+
+        /* --- 2. 页面主体布局 --- */
+        .about-page-container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding-top: 160px;
+            padding-bottom: var(--padding-l);
+        }
+
+        /* --- 3. 页头结构 --- */
+        .page-header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1;
+        }
+
+        .interactive-header-card {
+            position: relative;
+            width: 100%;
+            height: 200px;
+        }
+
+        #card {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 0 0 100% 100% / 0 0 160px 160px;
+            /* [修改] 移除全局过渡，使滚动模糊效果即时响应 */
+            background: linear-gradient(43deg, rgb(65, 88, 208) 0%, rgb(200, 80, 192) 46%, rgb(255, 204, 112) 100%);
+            padding: 20px var(--padding-m) 40px;
+            overflow: hidden;
+            filter: blur(var(--header-blur, 0px));
+            opacity: var(--header-opacity, 1);
+            will-change: filter, opacity;
+        }
+
+        #prompt {
+            top: 45%;
+            left: 0; right: 0;
+            transform: translateY(-50%);
+            z-index: 20;
+            transition: 300ms ease-in-out;
+            position: absolute;
+            text-align: center;
+            padding: 0 var(--padding-m);
+            color: white;
+        }
+
+        .main-title {
+            font-size: 24px;
+            font-weight: 700;
+            text-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            margin: 0;
+        }
+
+        .version-info {
+            font-size: 13px;
+            font-weight: 400;
+            color: #FFFFFF;
+            margin-top: 8px;
+            background-color: rgba(255, 255, 255, 0.25);
+            padding: 4px 10px;
+            border-radius: 12px;
+            display: inline-block;
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+        }
+
+        #card:hover {
+             filter: brightness(1.1) blur(var(--header-blur, 0px));
+             transition: filter 300ms ease-in-out; /* [修改] 仅为悬停效果添加过渡 */
+        }
+
+        #card::before {
+            content: '';
+            background: linear-gradient(43deg, rgb(65, 88, 208) 0%, rgb(200, 80, 192) 46%, rgb(255, 204, 112) 100%);
+            filter: blur(2rem);
+            opacity: 30%;
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            z-index: -1;
+            transition: opacity 200ms;
+        }
+
+        #card:hover::before {
+            opacity: 0.5;
+        }
+
+        /* --- 4. 内容卡片通用样式 --- */
+        .content-card-wrapper {
+            padding: 0 var(--padding-m);
+            position: relative;
+            z-index: 2;
+        }
+
+        .content-card {
+            position: relative;
+            background-color: var(--color-surface-card);
+            border-radius: var(--radius-l);
+            padding: var(--padding-l);
+            margin-bottom: 24px;
+            border: 1px solid var(--color-outline);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            opacity: 0;
+            transform: translateY(50px);
+            transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+        }
+
+        .content-card.is-visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .content-card::before {
+            content: "";
+            position: absolute;
+            top: -2px; left: -2px; right: -2px; bottom: -2px;
+            z-index: -1;
+            border-radius: inherit;
+            background: conic-gradient(
+                from var(--gradient-angle, 0deg),
+                #84fab0, #8fd3f4, #a18cd1, #fbc2eb, #84fab0
+            );
+            filter: blur(10px);
+            opacity: 0;
+            transition: opacity 0.4s ease-out;
+            background-position: calc(var(--mouse-x, 50) * 1%) calc(var(--mouse-y, 50) * 1%);
+        }
+
+        .content-card:hover::before {
+            opacity: 0.7;
+        }
+
+        @keyframes aurora-flow {
+            to {
+                --gradient-angle: 360deg;
+            }
+        }
+
+        .content-card {
+            --gradient-angle: 0deg;
+            animation: aurora-flow 8s linear infinite;
+        }
+
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .card-header .material-symbols-outlined {
+            color: var(--color-accent);
+            font-size: 28px;
+        }
+
+        .card-header h2 {
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        /* --- 5. 特定卡片内容样式 --- */
+
+        .author-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background-color: var(--color-accent-light);
+            padding: 12px var(--padding-m);
+            border-radius: var(--radius-m);
+            margin-bottom: 16px;
+        }
+        .author-info .name {
+            font-weight: 500;
+        }
+        .author-info .bio {
+            font-size: 12px;
+            color: var(--color-text-secondary);
+        }
+        .ai-collab {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+        .contact-info {
+            font-size: 13px;
+            color: var(--color-text-secondary);
+            line-height: 1.6;
+        }
+
+        .feature-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+        .feature-item {
+            display: flex;
+            align-items: flex-start;
+            gap: var(--padding-m);
+        }
+        .feature-item .material-symbols-outlined {
+            color: var(--color-accent);
+            margin-top: 2px;
+        }
+        .feature-item h4 {
+            font-size: 16px;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+        .feature-item p {
+            font-size: 14px;
+            line-height: 1.6;
+            color: var(--color-text-secondary);
+        }
+
+        .tech-stack-list {
+            list-style-position: outside;
+            padding-left: 24px;
+        }
+        .tech-stack-list li {
+            margin-bottom: 16px;
+        }
+        .tech-stack-list strong {
+            display: block;
+            margin-bottom: 4px;
+            font-weight: 500;
+        }
+        .tech-stack-list p {
+            font-size: 14px;
+            line-height: 1.6;
+            color: var(--color-text-secondary);
+            padding-left: 0;
+        }
+
+        .support-links {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--padding-m);
+            margin-top: 16px;
+        }
+        .support-button {
+            text-decoration: none;
+            padding: 14px;
+            border-radius: var(--radius-m);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-weight: 500;
+            transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+        }
+        .support-button:active {
+            transform: scale(0.96);
+        }
+        .support-button.github {
+            background-color: var(--color-github-bg);
+            color: white;
+        }
+        .support-button.coffee {
+            background-color: var(--color-coffee-bg);
+            color: var(--color-coffee-text);
+        }
+        .support-button svg {
+            width: 1.2em;
+            height: 1.2em;
+        }
+        /* 粘贴这段全新的CSS代码【开始】 */
+
+/* [最终修复-1] 为关于页面移除内边距，允许其内容全宽显示 */
+#page-about {
+    padding: 0;
+}
+
+/* [最终修复-2] 将页面内头部改为 fixed 定位，以使其固定在屏幕上 */
+#page-about .page-header {
+    position: fixed;
+    top: calc(var(--header-height) + env(safe-area-inset-top, 0px) + 24px);
+    left: 0;
+    right: 0;
+    z-index: 1; /* z-index较低，确保不会覆盖主应用的顶栏和弹窗 */
+}
+
+/* [最终修复-3] 确保内容区域从头部下方开始，避免被遮挡 */
+#page-about .about-page-container {
+    /* 这个容器现在是滚动的主体 */
+    position: relative;
+    padding-top: 160px; /* 留出顶部头部的空间 */
+}
+
+#page-about .content-card {
+    /* [修改] 增强玻璃拟态（微透）效果 */
+    --color-surface-card: rgba(255, 255, 255, 0.3); /* 降低背景不透明度，让背景更明显 */
+
+    /* [新增] 明确应用背景色，确保透明度生效 */
+    background-color: var(--color-surface-card);
+
+    /* [新增] 增加一个半透明的边框来强化轮廓 */
+    border: 1px solid rgba(255, 255, 255, 0.2);
+
+    --color-accent-light: #E6F0FF;
+    --color-github-bg: #24292e;
+    --color-coffee-bg: #FFDD00;
+    --color-coffee-text: #3D2B1F;
+}
     </style>
 </head>
 <body>
@@ -462,9 +800,8 @@
                 <table class="log-table" style="display: none;">
                     <thead>
                     <tr>
-                        <th>时间</th>
-                        <th>类型</th>
-                        <th>内容 (16进制)</th>
+                        <th>时间/类型</th>
+                        <th>内容</th>
                         <th>描述</th>
                     </tr>
                     </thead>
@@ -474,229 +811,134 @@
         </div>
 
         <div id="page-about" class="page">
-            <div class="content-card">
-                <div class="about-header">
-                    <span class="material-symbols-outlined icon">info</span>
-                    <h2>关于本项目</h2>
-                </div>
-                <p>
-                    这是一款专为电子爱好者和开发者设计的SPP经典蓝牙多功能图形化智能APP。它不仅提供了直观的继电器控制界面，还集成了强大的底层指令调试工具，并通过后台服务确保蓝牙连接的稳定和定时任务的精准执行。</p>
-                <p style="display: flex; align-items: center; gap: 8px; margin-top: 12px; flex-wrap: wrap;">
-                    <strong>作者：</strong> 拿铁咖啡不加奶 &nbsp;
-                    <span style="display: inline-flex; align-items: center; gap: 4px;">
-                <svg height="1em" style="flex:none;line-height:1" viewBox="0 0 24 24" width="1em"
-                     xmlns="http://www.w3.org/2000/svg"><title>Gemini</title><path
-                        d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z"
-                        fill="#3186FF"></path><path
-                        d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z"
-                        fill="url(#lobe-icons-gemini-fill-0)"></path><path
-                        d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z"
-                        fill="url(#lobe-icons-gemini-fill-1)"></path><path
-                        d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z"
-                        fill="url(#lobe-icons-gemini-fill-2)"></path><defs><linearGradient
-                        gradientUnits="userSpaceOnUse" id="lobe-icons-gemini-fill-0" x1="7" x2="11"
-                        y1="15.5" y2="12"><stop stop-color="#08B962"></stop><stop offset="1"
-                                                                                  stop-color="#08B962"
-                                                                                  stop-opacity="0"></stop></linearGradient><linearGradient
-                        gradientUnits="userSpaceOnUse" id="lobe-icons-gemini-fill-1" x1="8"
-                        x2="11.5" y1="5.5" y2="11"><stop stop-color="#F94543"></stop><stop
-                        offset="1" stop-color="#F94543" stop-opacity="0"></stop></linearGradient><linearGradient
-                        gradientUnits="userSpaceOnUse" id="lobe-icons-gemini-fill-2" x1="3.5"
-                        x2="17.5" y1="13.5" y2="12"><stop stop-color="#FABC12"></stop><stop
-                        offset=".46" stop-color="#FABC12" stop-opacity="0"></stop></linearGradient></defs></svg>
-                Gemini调试开发
-            </span>
-                </p>
-                <p style="margin-top: 8px;"><strong>问题反馈：</strong> QQ 984388724 /
-                    shj561661@outlook.com</p>
-                <p style="margin-top: 8px;">16岁初中生于2025年7月用AI协作完成的第一个安卓项目。</p>
-                <p class="info-chip">版本: 1.1.0 (one)</p>
-            </div>
 
-            <div class="content-card">
-                <div class="about-header">
-                    <span class="material-symbols-outlined icon">rocket_launch</span>
-                    <h2>使用说明</h2>
-                </div>
-                <h3>连接设备</h3>
-                <ol>
-                    <li>打开 App，点击右下角蓝牙悬浮按钮。</li>
-                    <li>自动连接名为&nbsp;<code>HCW</code>&nbsp;的已配对设备。</li>
-                    <li>顶部状态指示灯变绿表示连接成功。</li>
-                </ol>
-
-                <h3>主控界面</h3>
-                <ul>
-                    <li><strong>添加设备：</strong>点击底部“添加继电器”按钮。</li>
-                    <li><strong>编辑设备：</strong>点击卡片右上角编辑图标，修改名称、指令等。</li>
-                    <li><strong>手动控制：</strong>点击“开启”或“关闭”按钮发送指令。</li>
-                    <li><strong>展开高级功能：</strong>点击卡片右上角展开图标，进入定时/自动循环设置。
-                    </li>
-                </ul>
-
-                <h3>设置定时任务</h3>
-                <ul>
-                    <li>点击卡片高级设置 > 定时任务模块。</li>
-                    <li>选择“倒计时”或“定时预约”。</li>
-                    <li>设置时间与目标动作（开启/关闭）。</li>
-                    <li>点击“设置任务”启动；任务即使退出 App 后仍有效。</li>
-                    <li>可在卡片下方随时取消任务。</li>
-                </ul>
-
-                <h3>使用指令调试</h3>
-                <ul>
-                    <li>切换到“调试”页面。</li>
-                    <li>输入 HEX 或文本指令，点击发送。</li>
-                    <li>左下角可切换收发格式。</li>
-                    <li>实时显示收发数据，带时间戳标记。</li>
-                </ul>
-            </div>
-
-            <div class="content-card">
-                <div class="about-header">
-                    <span class="material-symbols-outlined icon">category</span>
-                    <h2>核心功能详解</h2>
-                </div>
-                <ul class="feature-list" style="padding:0; list-style:none;">
-                    <li class="feature-item">
-                        <span class="material-symbols-outlined icon"
-                              style="font-size:24px; color:var(--color-accent); margin-top:2px;">dynamic_feed</span>
-                        <div class="feature-item-content" style="flex:1;">
-                            <h4 style="font-size:16px; font-weight:500; margin:0 0 4px;">
-                                多路动态控制</h4>
-                            <p>
-                                您可以根据需要，动态添加、编辑和删除控制卡片。每张卡片都可独立配置名称和开关对应的16进制指令，所有配置都会自动保存在本地，为您提供极高的灵活性和个性化体验。</p>
+            <div class="about-page-container">
+                <header class="page-header">
+                    <div class="interactive-header-card">
+                        <div id="card">
+                            <div id="prompt">
+                                <h1 class="main-title">SPP蓝牙自动化控制</h1>
+                                <p class="version-info">版本: 2.0.0 (＋)</p>
+                            </div>
                         </div>
-                    </li>
-                    <li class="feature-item">
-                        <span class="material-symbols-outlined icon"
-                              style="font-size:24px; color:var(--color-accent); margin-top:2px;">alarm</span>
-                        <div class="feature-item-content" style="flex:1;">
-                            <h4 style="font-size:16px; font-weight:500; margin:0 0 4px;">
-                                精准后台定时</h4>
-                            <p>利用Android系统的<code>AlarmManager</code>，您可以设置倒计时或预约定时任务。得益于后台服务，即使App退至后台、息屏甚至设备休眠，任务依然会被唤醒并在预设时间精准触发，确保自动化任务万无一失。
-                            </p>
-                        </div>
-                    </li>
-                    <li class="feature-item">
-                        <span class="material-symbols-outlined icon"
-                              style="font-size:24px; color:var(--color-accent); margin-top:2px;">autorenew</span>
-                        <div class="feature-item-content" style="flex:1;">
-                            <h4 style="font-size:16px; font-weight:500; margin:0 0 4px;">
-                                高频自动循环</h4>
-                            <p>
-                                为单个设备开启自动循环模式，可自由调节每秒1到20次的开关频率。此功能非常适用于需要进行高频开关的设备测试、产品老化实验或任何需要快速脉冲信号的场景。</p>
-                        </div>
-                    </li>
-                    <li class="feature-item">
-                        <span class="material-symbols-outlined icon"
-                              style="font-size:24px; color:var(--color-accent); margin-top:2px;">terminal</span>
-                        <div class="feature-item-content" style="flex:1;">
-                            <h4 style="font-size:16px; font-weight:500; margin:0 0 4px;">
-                                底层指令调试</h4>
-                            <p>
-                                专为开发者设计的调试界面，支持以16进制或文本格式直接收发数据。您可以实时查看发送和接收的原始数据流，是进行蓝牙模块底层通信协议开发与验证的强大工具。</p>
-                        </div>
-                    </li>
-                    <li class="feature-item">
-                        <span class="material-symbols-outlined icon"
-                              style="font-size:24px; color:var(--color-accent); margin-top:2px;">history</span>
-                        <div class="feature-item-content" style="flex:1;">
-                            <h4 style="font-size:16px; font-weight:500; margin:0 0 4px;">
-                                全面操作日志</h4>
-                            <p>
-                                自动记录蓝牙连接、断开、数据收发、系统错误等所有关键操作，并提供清晰的分类和精确到毫秒的时间戳。当出现意外情况时，日志页面是您追溯问题、快速定位故障的得力助手。</p>
-                        </div>
-                    </li>
-                </ul>
-            </div>
+                    </div>
+                </header>
 
-            <div class="content-card">
-                <div class="about-header">
-                    <span class="material-symbols-outlined icon">architecture</span>
-                    <h2>应用架构解析</h2>
-                </div>
-                <p>
-                    本应用采用现代Android混合开发模式，将Web技术的灵活与原生功能的强大深度融合，实现了高性能与高效率的统一。</p>
-                <ul style="padding-left: 20px;">
-                    <li>
-                        <strong>前端界面 (UI Layer):</strong>
-                        <p>整个用户界面由<code>HTML</code>、<code>CSS</code>和<code>JavaScript</code>构建，运行在Android原生的<code>WebView</code>组件中。这种方式使得UI的开发和迭代速度极快，并且能够轻松实现流畅、现代的设计效果。
+                <main class="content-card-wrapper">
+                    <section class="content-card">
+                        <div class="card-header">
+                            <span class="material-symbols-outlined">info</span>
+                            <h2>关于项目</h2>
+                        </div>
+                        <p style="font-size: 14px; line-height: 1.6; color: var(--color-on-surface-variant); margin-bottom: 16px;">
+                            这是一款为用户，电子爱好者和开发者设计的SPP经典蓝牙多功能图形化智能APP。不仅提供了直观的继电器控制界面，还集成了强大的底层指令调试工具，并通过后台服务确保蓝牙连接的稳定和定时任务的精准执行。
                         </p>
-FDFDFDFD                     </li>
-                    <li>
-                        <strong>原生后端 (Logic Layer - Kotlin):</strong>
-                        <p>应用的核心逻辑由原生Kotlin代码驱动，确保了功能的稳定和高效。</p>
-                        <ul style="padding-left: 20px;">
-                            <li><strong><code>BluetoothService.kt</code>:</strong> 这是应用的“心脏”。它是一个<code>Foreground
-                                Service</code>（前台服务），被赋予了高系统优先级，能确保在App退至后台或锁屏后，蓝牙连接依然保持活动，不会被系统轻易“杀死”。它管理着蓝牙的连接、数据读写的所有线程，并作为定时任务的最终执行者。
-                            </li>
-                            <li><strong><code>AlarmReceiver.kt</code>:</strong> 这是一个<code>BroadcastReceiver</code>（广播接收器），专门用于接收由系统<code>AlarmManager</code>在精确时间点发出的“闹钟”广播。一旦接收到广播，它会立即唤醒<code>BluetoothService</code>去执行预设的指令，这是实现精准、可靠后台定时任务的关键。
-                            </li>
-                            <li><strong><code>MainActivity.kt</code>:</strong> 作为应用的主活动页，它承载着<code>WebView</code>，是UI和用户交互的入口。同时，它也负责处理蓝牙、通知等系统权限的请求，并作为原生后端与前端UI之间的“协调员”。
-                            </li>
-                        </ul>
-                    </li>
-                    <li>
-                        <strong>通信桥梁 (Bridge):</strong>
-                        <p>前端与后端通过一套高效的双向通信机制协同工作：</p>
-                        <ul style="padding-left: 20px;">
-                            <li><strong>JS -> Native:</strong>
-                                前端通过<code>@JavascriptInterface</code>暴露的<code>BTBridge</code>对象，可以直接调用<code>MainActivity.kt</code>中定义的Kotlin函数，如<code>BTBridge.sendData("A0...")</code>，从而向原生层下达指令。
-                            </li>
-                            <li><strong>Native -> JS:</strong>
-                                原生层（如<code>BluetoothService</code>）通过发送广播（<code>Broadcast</code>）来通知状态变化。<code>MainActivity</code>接收到广播后，会通过<code>WebView.evaluateJavascript(...)</code>方法执行相应的JS函数（如<code>window.onData(...)</code>），从而将原生层的事件实时反馈到UI上，实现界面数据的动态更新。
-                            </li>
-                        </ul>
-                    </li>
-                </ul>
-            </div>
+                        <div class="author-card">
+                            <div class="author-info">
+                                <div class="name">拿铁咖啡不加奶</div>
+                                <div class="bio">16岁开发者 / 第一个安卓项目</div>
+                            </div>
+                            <div class="ai-collab">
+                                <svg height="1.2em" style="flex:none;line-height:1" viewBox="0 0 24 24" width="1.2em" xmlns="http://www.w3.org/2000/svg"><path d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z" fill="#3186FF"></path></svg>
+                                <span>与 Gemini 协作</span>
+                            </div>
+                        </div>
+                        <div class="contact-info">
+                            <strong>问题反馈:</strong><br>
+                            QQ 984388724<br>
+                            shj561661@outlook.com
+                        </div>
+                    </section>
 
-            <div class="content-card">
-                <div class="about-header">
-                    <span class="material-symbols-outlined icon">favorite</span>
-                    <h2>支持与开源</h2>
-                </div>
-                <p>
-                    如果这个项目对您有帮助，欢迎通过以下方式支持我。您的鼓励是我持续更新和创作的动力！</p>
-                <div class="support-links" style="display: flex; gap: 16px; margin-top: 16px;">
-                    <a href="https://github.com/shj56166/kongzhi2" target="_blank"
-                       style="flex: 1; text-decoration: none; padding: 12px; border-radius: 12px; background-color: #333; color: white; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 500;">
-                        <svg class="icon" viewBox="0 0 16 16" fill="currentColor" height="1em"
-                             width="1em">
-                            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
-                        </svg>
-                        <span>GitHub</span>
-                    </a>
-                    <a href="#paymentModal"
-                       style="flex: 1; text-decoration: none; padding: 12px; border-radius: 12px; background-color: #FFDD00; color: #3D2B1F; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 500; cursor: pointer;">
-                        <span class="material-symbols-outlined icon">coffee</span>
-                        <span>请我喝杯咖啡</span>
-                    </a>
-                </div>
+                    <section class="content-card">
+                        <div class="card-header">
+                            <span class="material-symbols-outlined">category</span>
+                            <h2>核心功能</h2>
+                        </div>
+                        <ul class="feature-list">
+                            <li class="feature-item">
+                                <span class="material-symbols-outlined">dynamic_feed</span>
+                                <div>
+                                    <h4>多路动态控制</h4>
+                                    <p>动态添加、编辑和删除控制卡片，独立配置指令，所有配置自动本地保存，提供极高的灵活性。</p>
+                                </div>
+                            </li>
+                            <li class="feature-item">
+                                <span class="material-symbols-outlined">alarm</span>
+                                <div>
+                                    <h4>精准后台定时</h4>
+                                    <p>利用系统AlarmManager，即使App息屏或设备休眠，任务依然会被唤醒并精准触发，确保自动化万无一失。</p>
+                                </div>
+                            </li>
+                            <li class="feature-item">
+                                <span class="material-symbols-outlined">terminal</span>
+                                <div>
+                                    <h4>底层指令调试</h4>
+                                    <p>为开发者设计，支持HEX/文本格式收发原始数据流，是进行蓝牙协议开发与验证的强大工具。</p>
+                                </div>
+                            </li>
+                        </ul>
+                    </section>
+
+                    <section class="content-card">
+                        <div class="card-header">
+                            <span class="material-symbols-outlined">architecture</span>
+                            <h2>应用架构</h2>
+                        </div>
+                        <ul class="tech-stack-list">
+                            <li>
+                                <strong>前端界面 (UI Layer):</strong>
+                                <p>由HTML, CSS, JS构建，运行于原生WebView中，实现快速迭代和现代化的设计效果。</p>
+                            </li>
+                            <li>
+                                <strong>原生后端 (Logic Layer - Kotlin):</strong>
+                                <p>由Kotlin驱动，通过前台服务(Foreground Service)确保后台蓝牙连接稳定，并通过广播接收器(BroadcastReceiver)实现精准定时任务。</p>
+                            </li>
+                            <li>
+                                <strong>通信桥梁 (Bridge):</strong>
+                                <p>通过JavascriptInterface (JS->Native) 和 evaluateJavascript (Native->JS) 实现前端与原生后端的高效双向通信。</p>
+                            </li>
+                        </ul>
+                    </section>
+
+                    <section class="content-card">
+                        <div class="card-header">
+                            <span class="material-symbols-outlined">favorite</span>
+                            <h2>支持与开源</h2>
+                        </div>
+                        <p style="font-size: 14px; line-height: 1.6; color: var(--color-text-secondary);">
+                            如果这个项目对您有帮助，欢迎通过以下方式支持我。您的鼓励是我持续更新和创作的动力！2025/8/26
+                        </p>
+                        <div class="support-links">
+                            <a href="https://github.com/shj56166/kongzhi2" target="_blank" class="support-button github">
+                                <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path></svg>
+                                <span>GitHub</span>
+                            </a>
+                            <a href="#paymentModal" class="support-button coffee">
+                                <span class="material-symbols-outlined">coffee</span>
+                                <span>请我喝杯咖啡</span>
+                            </a>
+                        </div>
+                    </section>
+                </main>
             </div>
 
             <div id="paymentModal" class="payment-modal-overlay">
                 <div class="payment-modal-content">
-                    <a href="#"
-                       style="position: absolute; top: 16px; right: 20px; font-size: 28px; text-decoration: none; color: var(--color-on-surface-variant);">&times;</a>
-
+                    <a href="#" style="position: absolute; top: 16px; right: 20px; font-size: 28px; text-decoration: none; color: var(--color-on-surface-variant);">&times;</a>
                     <div class="payment-toggle">
                         <input type="radio" name="payment-method" id="wx-radio" checked>
                         <label for="wx-radio">微信支付</label>
-
                         <input type="radio" name="payment-method" id="zfb-radio">
                         <label for="zfb-radio">支付宝</label>
                     </div>
-
                     <div class="qr-image-container">
-                        <img id="wx-qr" class="qr-image" src="file:///android_asset/images/wx.png"
-                             alt="微信支付二维码">
-                        <img id="zfb-qr" class="qr-image" src="file:///android_asset/images/zfb.jpg"
-                             alt="支付宝二维码">
+                        <img id="wx-qr" class="qr-image" src="file:///android_asset/images/wx.png" alt="微信支付二维码">
+                        <img id="zfb-qr" class="qr-image" src="file:///android_asset/images/zfb.jpg" alt="支付宝二维码">
                     </div>
                 </div>
             </div>
+
         </div>
     </main>
     <nav class="app-nav">
@@ -961,12 +1203,62 @@ FDFDFDFD                     </li>
 
         const BTBridge = window.BTBridge;
 
+            window.handleAndroidBackButton = () => {
+            // 优先级最高：检查是否有输入框正处于激活状态（即输入法已弹出）
+            const activeElement = document.activeElement;
+            if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA')) {
+                activeElement.blur(); // 让输入框失去焦点，系统会自动收回输入法
+                return true; // 返回 true，告诉安卓已处理
+            }
+
+            // 优先级1: 检查并关闭各类弹窗和面板
+            const editModal = document.getElementById('editModal');
+            if (editModal.classList.contains('show')) {
+                editModal.classList.remove('show');
+                return true;
+            }
+
+            const scanDialog = document.getElementById('scanDialog');
+            if (scanDialog.classList.contains('show')) {
+                ScanDialog.hide(); // 现在可以正常调用了
+                return true;
+            }
+
+            const statsPanel = document.getElementById('statsPanel');
+            if (statsPanel.classList.contains('show')) {
+                DebugPage.togglePanel(false);
+                return true;
+            }
+
+            if (window.location.hash === '#paymentModal') {
+                window.location.hash = '#';
+                return true;
+            }
+
+            const confirmDialog = document.getElementById('confirmDialog');
+            if (confirmDialog.classList.contains('show')) {
+                hideConfirmDialog();
+                return true;
+            }
+
+            // 优先级2: 如果没有弹窗，则检查是否在其他功能页面
+            if (AppState.currentPage !== 'page-relay-control') {
+                switchPage('page-relay-control');
+                return true;
+            }
+
+            // 优先级3: 如果在主控页且无任何弹窗，允许App退出
+            return false;
+            };
+
             window.onError = (message) => {
                 showToast(`错误: ${message}`);
-                LogPage.addLog({ type: 'error', content: message, description: '发生错误' });
+                // [修改] 增加更详细的描述
+                LogPage.addLog({ type: 'error', content: message, description: '原生层或系统错误' });
             };
             window.onData = (hexData) => {
-                LogPage.addLog({ type: 'received', content: hexData, description: '从设备接收' });
+                // [修改] 指定内容格式为'hex'
+                LogPage.addLog({ type: 'received', content: hexData, description: '从设备接收', format: 'hex' });
                 if (AppState.currentPage === 'page-relay-control') RelayPage.handleData(hexData);
                 else if (AppState.currentPage === 'page-command-debug') DebugPage.handleData(hexData);
             };
@@ -981,7 +1273,8 @@ FDFDFDFD                     </li>
                     AppState.activeTimers = newTimers;
                 } catch (e) {
                     console.error("解析定时器更新失败:", e);
-                    LogPage.addLog({ type: 'error', content: e.message, description: '解析定时器失败' });
+                    // [修改] 增加更详细的描述
+                    LogPage.addLog({ type: 'error', content: e.message, description: '解析后台定时器数据失败' });
                 }
             };
             window.onPermissionRequired = (permissionType) => {
@@ -1023,21 +1316,64 @@ FDFDFDFD                     </li>
             const placeholderEl = document.getElementById('logPlaceholder');
             let logs = [];
 
-            const renderLog = (log) => {
-                const row = document.createElement('tr');
-                row.className = 'log-row';
-                row.innerHTML = `
-                    <td class="log-timestamp">${log.timestamp.toLocaleTimeString('sv-SE')}.${String(log.timestamp.getMilliseconds()).padStart(3, '0')}</td>
-                    <td class="log-type"><span class="${log.type.toLowerCase()}">${log.type}</span></td>
-                    <td class="log-content">${formatHex(log.content)}</td>
-                    <td class="log-description">${log.description || 'N/A'}</td>
-                `;
-                logListEl.prepend(row); // Add new logs to the top
+            // [新增] 类型中文化映射表
+            const typeTranslations = {
+                sent: '发送',
+                received: '接收',
+                system: '系统',
+                error: '错误'
+            };
+
+            // [新增] 一个简单的HTML转义函数，防止内容注入
+            const escapeHTML = (str) => {
+                if (!str) return '';
+                return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
             };
 
             const formatHex = (hex) => {
                 if (!hex) return '-';
                 return hex.replace(/\s/g, '').match(/.{1,2}/g)?.join(' ').toUpperCase() || hex;
+            };
+
+            // [重写] renderLog 函数以适应新逻辑
+            const renderLog = (log) => {
+                const row = document.createElement('tr');
+                row.className = 'log-row';
+
+                // 1. 创建 类型/时间 单元格
+                const timeAndTypeCell = document.createElement('td');
+                timeAndTypeCell.className = 'log-timestamp-type';
+                const timeString = `${log.timestamp.toLocaleTimeString('sv-SE')}.${String(log.timestamp.getMilliseconds()).padStart(3, '0')}`;
+                const typeClass = log.type.toLowerCase();
+                const typeText = typeTranslations[typeClass] || log.type;
+
+                // [修改] 交换了类型和时间的位置
+                timeAndTypeCell.innerHTML = `
+                    <span class="log-type-badge ${typeClass}">${typeText}</span>
+                    <br>
+                    ${timeString}
+                `;
+
+                // 2. 创建 内容 单元格 (智能格式化)
+                const contentCell = document.createElement('td');
+                contentCell.className = 'log-content';
+                if (log.format === 'hex' && log.content) {
+                    contentCell.textContent = formatHex(log.content);
+                } else {
+                    contentCell.textContent = log.content || '-';
+                }
+
+                // 3. 创建 描述 单元格
+                const descriptionCell = document.createElement('td');
+                descriptionCell.className = 'log-description';
+                // [修改] 直接使用 textContent 来设置描述，浏览器会自动处理特殊字符，避免了乱码问题
+                descriptionCell.textContent = log.description || 'N/A';
+
+                row.appendChild(timeAndTypeCell);
+                row.appendChild(contentCell);
+                row.appendChild(descriptionCell);
+
+                logListEl.prepend(row); // 保持新日志在顶部
             };
 
             return {
@@ -1208,6 +1544,8 @@ FDFDFDFD                     </li>
                 LogPage.addLog({
                     type: 'Sent',
                     content: command,
+                    // [修改] 指定内容格式为'hex'
+                    format: 'hex',
                     description: `控制: ${relay.name} -> ${state === 'on' ? '开启' : '关闭'}`
                 });
                 BTBridge.sendData(command);
@@ -1263,12 +1601,14 @@ FDFDFDFD                     </li>
                 const command = action === 'on' ? relays[index].onCommand : relays[index].offCommand;
                 const taskId = `relay_${index}_${Date.now()}`;
                 let delayMs = 0;
+                let timeDescription = '';
                 const timerType = card.querySelector('.timer-mode-switch').classList.contains('mode-countdown') ? 'countdown' : 'scheduled';
                 if (timerType === 'countdown') {
                     const minutes = parseInt(document.getElementById(`minutes-wheel-${index}`).dataset.value, 10) || 0;
                     const seconds = parseInt(document.getElementById(`seconds-wheel-${index}`).dataset.value, 10) || 0;
                     delayMs = (minutes * 60 + seconds) * 1000;
                     if (delayMs <= 0) { showToast('请选择有效的倒计时时长'); return; }
+                    timeDescription = `${minutes}分${seconds}秒后`;
                 } else {
                     const timeStr = card.querySelector('.scheduled-input').value;
                     if (!timeStr) { showToast('请选择一个有效的时间'); return; }
@@ -1277,13 +1617,33 @@ FDFDFDFD                     </li>
                     targetTime.setHours(hours, minutes, 0, 0);
                     if (targetTime <= new Date()) targetTime.setDate(targetTime.getDate() + 1);
                     delayMs = targetTime.getTime() - new Date().getTime();
+                    timeDescription = `预约在 ${timeStr}`;
                 }
                 BTBridge.setTimer(taskId, delayMs, command);
                 showToast('定时任务已发送至后台服务');
+                // [新增] 添加设置定时任务的日志
+                LogPage.addLog({
+                    type: 'system',
+                    content: command,
+                    format: 'hex',
+                    description: `为"${relays[index].name}"设置任务: ${timeDescription}${action === 'on' ? '开启' : '关闭'}`
+                });
             }
 
             function cancelTimedTask(taskId) {
                 BTBridge.cancelTimer(taskId);
+                // [新增] 添加取消定时任务的日志
+                const task = AppState.activeTimers[taskId];
+                if (task) {
+                    const relayIndex = relays.findIndex(r => r.onCommand === task.command || r.offCommand === task.command);
+                    if (relayIndex !== -1) {
+                        LogPage.addLog({
+                            type: 'system',
+                            content: `任务ID ${taskId.slice(-4)}`,
+                            description: `已取消"${relays[relayIndex].name}"的定时任务`
+                        });
+                    }
+                }
             }
 
             function updateAllTimerStatus(oldTimers, newTimers) {
@@ -1381,8 +1741,19 @@ FDFDFDFD                     </li>
                 handleData: (hex) => {
                     const upperHex = hex.toUpperCase().replace(/\s/g, '');
                     for (let i = 0; i < relays.length; i++) {
-                        if (upperHex === relays[i].onCommand.toUpperCase().replace(/\s/g, '') && relays[i].status !== 'on') { updateRelayStatusUI(i, 'on');}
-                        if (upperHex === relays[i].offCommand.toUpperCase().replace(/\s/g, '') && relays[i].status !== 'off') { updateRelayStatusUI(i, 'off');}
+                        const isMatchedOn = upperHex === relays[i].onCommand.toUpperCase().replace(/\s/g, '');
+                        const isMatchedOff = upperHex === relays[i].offCommand.toUpperCase().replace(/\s/g, '');
+
+                        if ((isMatchedOn && relays[i].status !== 'on') || (isMatchedOff && relays[i].status !== 'off')) {
+                            const newState = isMatchedOn ? 'on' : 'off';
+                            updateRelayStatusUI(i, newState);
+                            // [新增] 添加状态自动同步的日志
+                            LogPage.addLog({
+                                type: 'system',
+                                content: '-',
+                                description: `状态同步: "${relays[i].name}" -> ${newState === 'on' ? '开启' : '关闭'}`
+                            });
+                        }
                     }
                 },
                 updateAllTimerStatus,
@@ -1461,8 +1832,7 @@ FDFDFDFD                     </li>
 
                 if (sendFormat === 'text') {
                     commandToSend = stringToHex(command);
-                } else { // hex
-                    // Validate hex before sending
+                } else {
                     if (!/^[0-9a-fA-F\s]*$/.test(commandToSend)) {
                         showToast("无效的hex格式");
                         return;
@@ -1471,7 +1841,13 @@ FDFDFDFD                     </li>
 
                 BTBridge.sendData(commandToSend);
                 addMessage(displayCommand, 'sent', sendFormat);
-                LogPage.addLog({ type: 'Sent', content: commandToSend, description: '调试发送' });
+                // [修改] 增加更详细的描述并传递格式
+                LogPage.addLog({
+                    type: 'Sent',
+                    content: commandToSend,
+                    description: `调试发送 (${sendFormat.toUpperCase()})`,
+                    format: 'hex'
+                });
 
                 stats.sentSuccess++;
                 updateStatsDisplay();
@@ -1710,6 +2086,7 @@ const ScanDialog = (() => {
                 }, 100);
             }
         },
+        hide,
         show,
         // [修改] 暴露 updateConnectionHistory 接口
         updateConnectionHistory,
@@ -1762,7 +2139,8 @@ const ScanDialog = (() => {
    };
 })();
 
-// 修改后的 onConnectionStateChange 函数
+// [最终修正] onConnectionStateChange 函数
+// 这个版本不再负责更新历史记录，只专注于更新App的连接状态和UI显示
 window.onConnectionStateChange = (state, deviceName, deviceAddress) => {
     const STATE_DISCONNECTED = 0;
     const STATE_CONNECTING = 1;
@@ -1774,10 +2152,6 @@ window.onConnectionStateChange = (state, deviceName, deviceAddress) => {
     if(AppState.isBtConnected){
         AppState.connectedDeviceName = deviceName;
         AppState.connectedDeviceAddress = deviceAddress;
-
-        // [修改] 连接成功时，调用ScanDialog的函数来更新历史记录
-
-
     } else {
         AppState.connectedDeviceName = null;
         AppState.connectedDeviceAddress = null;
@@ -1814,6 +2188,55 @@ window.onConnectionStateChange = (state, deviceName, deviceAddress) => {
 
         // --- App Initialization ---
         const initializeApp = () => {
+            // 替换为这段全新的代码【开始】
+// --- About Page Dynamic Effects ---
+const aboutPageContainer = document.getElementById('page-about');
+if (aboutPageContainer) {
+    // 1. 滚动触发卡片浮现动画 (已正确限定)
+    const revealCards = aboutPageContainer.querySelectorAll('.content-card');
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('is-visible');
+            }
+        });
+    }, {
+        threshold: 0.1,
+        root: aboutPageContainer // 关键：指定滚动的根元素是“关于”页面本身
+    });
+    revealCards.forEach(card => observer.observe(card));
+
+    // 2. 卡片光晕效果 (已正确限定)
+    const interactiveCards = aboutPageContainer.querySelectorAll('.content-card');
+    interactiveCards.forEach(card => {
+        card.addEventListener('mousemove', (e) => {
+            const rect = card.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            card.style.setProperty('--mouse-x', `${(x / rect.width) * 100}%`);
+            card.style.setProperty('--mouse-y', `${(y / rect.height) * 100}%`);
+        });
+    });
+
+    // 3. 滚动时模糊并淡出固定的页头 (已正确限定)
+    const headerCard = aboutPageContainer.querySelector('#card');
+    aboutPageContainer.addEventListener('scroll', function() { // 关键：监听“关于”页面的滚动
+        const scrollY = this.scrollTop;
+        const maxScroll = 350; // 调整此值可改变模糊速度
+        const maxBlur = 16;
+        const scrollFraction = Math.min(scrollY / maxScroll, 1);
+        const blurValue = scrollFraction * maxBlur;
+        const opacityValue = 1 - (scrollFraction * 0.5);
+
+        window.requestAnimationFrame(() => {
+            if (headerCard) {
+                headerCard.style.setProperty('--header-blur', `${blurValue}px`);
+                headerCard.style.setProperty('--header-opacity', opacityValue);
+            }
+        });
+    }, { passive: true });
+}
+// 替换为这段全新的代码【结束】
             LogPage.init();
             RelayPage.init();
             DebugPage.init();

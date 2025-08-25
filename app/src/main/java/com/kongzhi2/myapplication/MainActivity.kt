@@ -33,6 +33,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import androidx.activity.OnBackPressedCallback
 
 class MainActivity : AppCompatActivity() {
 
@@ -119,6 +120,24 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        // [升级] 返回键拦截逻辑
+        val onBackPressedCallback = object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                // 优先级最高：检查WebView自身是否可以返回（例如加载了外部网页）
+                if (webView.canGoBack()) {
+                    webView.goBack() // 如果可以，就执行WebView的返回操作
+                } else {
+                    // 如果WebView不能返回，再询问JS是否有内部页面或弹窗需要处理
+                    webView.evaluateJavascript("window.handleAndroidBackButton();") { result ->
+                        if (result != "true") {
+                            finish() // 如果JS说没啥可处理的，就退出App
+                        }
+                    }
+                }
+            }
+        }
+        onBackPressedDispatcher.addCallback(this, onBackPressedCallback)
 
         localBroadcastManager = LocalBroadcastManager.getInstance(this)
 
