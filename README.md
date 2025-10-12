@@ -1,122 +1,132 @@
-# SPP Control: Automation & Terminal
+# 🌐 SPP 蓝牙自动化控制
 
-一款为用户，电子爱好者与开发者打造，集图形化控制、后台自动化、底层调试于一体的 SPP 经典蓝牙多功能安卓应用。
+[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/shj56166/kongzhi2)
+[![Platform](https://img.shields.io/badge/platform-Android-green.svg)](https://developer.android.com)
+[![Language](https://img.shields.io/badge/language-HTML%20%7C%20Kotlin-orange.svg)]()
+[![License: MIT](https://img.shields.io/badge/license-MIT-lightgrey.svg)](LICENSE)
+
+> 💡 一款基于 **SPP 蓝牙** 通信协议的多功能自动化控制平台，集成继电器控制、定时任务与底层调试功能。  
+> 采用 **HTML + Kotlin 前后端分离架构**，轻量、高效、现代。
 
 ---
 
-## 📌 概览
+## 🧭 项目简介
 
-本项目旨在解决与 SPP 蓝牙模块（如 HC-05、HC-06）交互时的常见痛点。它提供了一个直观、现代的用户界面来控制多路继电器等设备，并集成强大的后台服务，确保定时任务即使在息屏、后台、设备休眠等情况下也能被精准触发。
+**SPP 蓝牙自动化控制** 是一款为电子爱好者与开发者打造的跨层蓝牙控制 App。  
+通过简洁的 Material You 风格界面，用户可实现蓝牙设备的智能控制与自动化任务管理。
 
-专为开发者设计的指令终端，使其成为一个强大的蓝牙协议调试工具。
+它可用作：
+- 蓝牙继电器控制器  
+- 蓝牙模块（HC-05 / HC-06 / ESP32 SPP 模式）调试终端  
+- 自动化实验平台或物联网原型系统 轻量项目控制 
 
 ---
 
 ## ✨ 核心功能
 
-### ⚡️ 多路动态控制 (Dynamic Multi-Channel Control)
-- 动态添加、编辑和删除控制卡片。
-- 为每个开关配置名称和对应的十六进制指令。
-- 自动保存所有配置，实现高度个性化。
-
-### 🕒 精准后台定时 (Precise Background Timing)
-- 支持“倒计时”和“定时预约”两种模式。
-- 使用 `AlarmManager` 与前台服务，确保任务即使在后台、息屏、重启后依然精准执行。
-
-### 🔄 高频自动循环 (High-Frequency Auto-Cycling)
-- 单个设备可开启自动循环模式。
-- 自由调节频率（1–20 次/秒），适用于测试、老化实验等场景。
-
-### ⌨️ 底层指令调试 (Low-Level Command Terminal)
-- 支持 HEX（16进制）和 Text（文本）格式收发。
-- 实时查看精确时间戳的原始数据流。
-- 面向蓝牙通信协议开发者设计。
-
-### 📚 全面操作日志 (Comprehensive Logging)
-- 自动记录蓝牙连接/断开、数据收发、系统错误等关键事件。
-- 清晰分类，精确到毫秒，便于追踪问题。
+| 模块 | 描述 |
+|------|------|
+| 🧩 **多路动态控制** | 动态添加、编辑、删除继电器卡片；独立配置指令，自动保存本地。 |
+| ⏰ **精准后台定时** | 采用 `AlarmManager` 精确唤醒机制，即使息屏/休眠仍能执行任务。 |
+| 🧠 **底层指令调试台** | 支持 HEX 与 文本格式互转，实时记录收发信息与响应日志。 |
+| 🧾 **日志记录系统** | 清晰展示通信记录与任务状态，支持类型筛选与时间标注。 |
+| ⚙️ **原生后台服务** | Kotlin 前台服务维持稳定蓝牙连接，配合广播接收器实现任务分发。 |
 
 ---
 
-## 🛠️ 技术栈与架构解析
+## 🧱 技术架构
 
-### 1. 前端 (UI Layer)
-- **技术**: HTML5, CSS3, JavaScript  
-- **UI 库**: Material Web Components  
-- **实现**: 所有 UI 运行在 Android 原生 WebView 中，开发迭代快速，界面现代、流畅。
-
-### 2. 原生后端 (Logic Layer - Kotlin)
-- **BluetoothService.kt**  
-  Foreground Service，维持蓝牙连接与数据通信，处理定时任务执行。
-
-- **AlarmReceiver.kt**  
-  接收系统 AlarmManager 的广播，触发定时操作。
-
-- **MainActivity.kt**  
-  WebView 容器 + 权限请求 + 前后端桥梁协调器。
-
-### 3. 通信桥梁 (Bridge)
-- **JS → Native**  
-  通过 `window.BTBridge` 调用 Kotlin，例如：  
-  `BTBridge.sendData("A0...")`
-
-- **Native → JS**  
-  Kotlin 广播 → `MainActivity` 接收 → `WebView.evaluateJavascript(...)` 执行 JS 回调：  
-  `window.onConnectionStateChange(...)`
+```
+📱 Android (Kotlin)
+│
+├── 🔧 蓝牙服务层：SPP (Serial Port Profile)
+│   ├─ 前台服务 (ForegroundService)
+│   ├─ 后台任务触发 (AlarmManager)
+│   └─ 状态广播管理 (BroadcastReceiver)
+│
+├── 🌐 前端界面层：HTML + CSS + JS
+│   ├─ Material Web Components 实现 Material You 风格
+│   ├─ 动态继电器卡片与任务配置界面
+│   └─ 指令调试与日志模块
+│
+└── 🔗 通信桥梁：
+    ├─ JS 调用原生：`JavascriptInterface`
+    └─ 原生回调 JS：`evaluateJavascript`
+```
 
 ---
 
-## 🚀 使用说明
+## 📂 文件结构
 
-### 连接设备
-1. 打开 App，点击右下角蓝牙悬浮按钮。
-2. 自动连接名为 `HCW` 的已配对设备。
-3. 顶部状态指示灯变绿表示连接成功。
-
-### 主控界面
-- **添加设备**：点击底部“添加继电器”按钮。
-- **编辑设备**：点击卡片右上角编辑图标，修改名称、指令等。
-- **手动控制**：点击“开启”或“关闭”按钮发送指令。
-- **展开高级功能**：点击卡片右上角展开图标，进入定时/自动循环设置。
-
-### 设置定时任务
-1. 点击卡片高级设置 > 定时任务模块。
-2. 选择“倒计时”或“定时预约”。
-3. 设置时间与目标动作（开启/关闭）。
-4. 点击“设置任务”启动；任务即使退出 App 后仍有效。
-5. 可在卡片下方随时取消任务。
-
-### 使用指令调试
-1. 切换到“调试”页面。
-2. 输入 HEX 或文本指令，点击发送。
-3. 左下角可切换收发格式。
-4. 实时显示收发数据，带时间戳标记。
+```
+project-root/
+├── index.html              # 主界面入口
+├── /fonts/                 # 字体文件 (Roboto / Material Symbols)
+├── /js/material-web.js     # Material Web 组件
+└── /android/               # Kotlin 后端逻辑 (蓝牙控制服务)
+```
 
 ---
 
-## 👤 关于作者
+## ⚙️ 部署与运行
 
-- **作者**：拿铁咖啡不加奶  
-- **AI 协作**：Gemini  
-- **年龄**：16 岁  
-- **简介**：本项目为作者于 2025 年 7 月，在 AI 协助下完成的首个 Android 项目。
-
-- **联系方式**：
-  - QQ：984388724
-  - Email：shj561661@outlook.com  
-
----
-
-## ❤️ 支持与开源
-
-如果这个项目对您有帮助，或者您欣赏这份探索精神，欢迎通过以下方式支持我：
-
-- 在 GitHub 上点一个 ⭐ Star！
-- 分享给有类似需求的朋友！
+1. 将前端文件放入 Android 项目：
+   ```
+   app/src/main/assets/index.html
+   ```
+2. 启用 WebView 与 JS：
+   ```kotlin
+   webView.settings.javaScriptEnabled = true
+   webView.addJavascriptInterface(BluetoothBridge(this), "NativeBridge")
+   webView.loadUrl("file:///android_asset/index.html")
+   ```
+3. 运行应用后，即可在 WebView 中启动控制界面。
 
 ---
 
-## 📄 许可证
+## 🧠 开发目标
 
-本项目使用 [MIT License](https://opensource.org/licenses/MIT) 开源。您可以自由使用、修改与分发。
+- ✅ 极简 Material You 风格 UI  
+- ✅ 稳定后台运行与断线重连  
+- ✅ 低编译错误率与快速预览  
+- ✅ 支持后期迁移至 Jetpack Compose  
+
+---
+
+## 🧰 技术栈
+
+| 分类 | 技术 |
+|------|------|
+| 语言 | **HTML / CSS / JavaScript / Kotlin** |
+| 框架 | **Material Web Components** |
+| 平台 | **Android 10+ (WebView)** |
+| 通信 | **SPP 蓝牙 (RFCOMM)** |
+| 架构 | **前后端分离 + JS ↔ Native 桥接通信** |
+
+---
+
+## 👨‍💻 作者信息
+
+| 作者 | 简介 |
+|------|------|
+| **拿铁咖啡不加奶**
+| **协作** | Gemini (AI 技术支持) |
+| **联系方式** | QQ: `984388724` / ✉️ `shj561661@outlook.com` |
+
+---
+
+## 🤝 支持与开源
+
+📦 **GitHub：** [https://github.com/shj56166/kongzhi2](https://github.com/shj56166/kongzhi2)  
+☕ **支持作者：** 如果这个项目帮助到了你，欢迎 Star ⭐ 或“请我喝杯咖啡”！
+
+---
+
+## 📜 许可协议
+
+本项目采用 [MIT License](LICENSE) 开源。  
+可自由使用、修改、分发，但需保留作者署名。
+
+---
+
 
