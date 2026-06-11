@@ -1,0 +1,21 @@
+.sass-cache/
+*.css.map
+*.sass.map
+*.scss.map
+
+# Android / Gradle
+.gradle/
+build/
+*/build/
+local.properties
+
+# IDE / tooling
+.idea/
+.kotlin/
+*.iml
+
+# Generated artifacts
+*.apk
+*.aab
+app/release/
+*.dm

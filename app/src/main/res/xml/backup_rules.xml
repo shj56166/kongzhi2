@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    This file is used for older versions of Android (before API 31) to control
+    the Auto Backup feature. For API 31 and above, data_extraction_rules.xml is used.
+    For more information, see:
+    https://developer.android.com/guide/topics/data/autobackup#XMLSyntax
+-->
+<full-backup-content>
+    <!--
+        TODO: Specify what to back up.
+        By default, most of your app's data is backed up.
+        To exclude specific files or directories, add an <exclude> tag.
+        Example: <exclude domain="sharedpref" path="device.xml"/>
+    -->
+</full-backup-content>

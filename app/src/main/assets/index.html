@@ -1,0 +1,5113 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <title>蓝牙多功能控制器</title>
+
+    <style>
+      /* --- 本地字体加载规则 开始 --- */
+      @font-face {
+        font-family: "Roboto";
+        font-style: normal;
+        font-weight: 400;
+        /* [最终修复] 必须使用相对路径 */
+        src: url("./fonts/Roboto-Regular.ttf") format("truetype");
+      }
+      @font-face {
+        font-family: "Roboto";
+        font-style: normal;
+        font-weight: 500;
+        /* [最终修复] 必须使用相对路径 */
+        src: url("./fonts/Roboto-Medium.ttf") format("truetype");
+      }
+      @font-face {
+        font-family: "Roboto";
+        font-style: normal;
+        font-weight: 700;
+        /* [最终修复] 必须使用相对路径 */
+        src: url("./fonts/Roboto-Bold.ttf") format("truetype");
+      }
+      @font-face {
+        font-family: "Material Symbols Outlined";
+        font-style: normal;
+        /* 恢复为最简单的静态字重声明 */
+        font-weight: 400;
+        /* 路径保持不变，但格式恢复为最通用的 truetype */
+        src: url("./fonts/MaterialSymbolsVariable.ttf") format("truetype");
+      }
+      /* --- 本地字体加载规则 结束 --- */
+      :root {
+        --padding-l: 24px;
+        --padding-m: 16px;
+        --padding-s: 8px;
+        --radius-l: 28px;
+        --radius-m: 16px;
+        --gap-m: 16px;
+        --gap-s: 8px;
+        --color-accent: #007bff;
+        --color-on-accent: #ffffff;
+        --color-accent-container: #e6f2ff;
+        --color-on-accent-container: #0056b3;
+        --color-surface-container-highest: #ffffff;
+        --color-surface-container-low: #f7f8fa;
+        --color-on-surface: #1a1c1e;
+        --color-on-surface-variant: #5a6470;
+        --color-outline: #dce1e7;
+        --color-background: #fdfdfd;
+        --color-success: #27ae60;
+        --color-error: #c0392b;
+        --color-inactive: #bdc3c7;
+        --color-warning: #f39c12;
+        --header-height: 72px;
+        --nav-height: 64px;
+        --anim-duration: 0.3s;
+        --anim-curve: cubic-bezier(0.25, 0.8, 0.25, 1);
+        /* 蓝牙连接标题渐变色 */
+        --color-title-purple: #8e44ad;
+        --color-title-blue: #3498db;
+        --color-recent-1: #d2e4ff;
+        --color-recent-2: #e0ebff;
+        --color-recent-3: #ebf3ff;
+        --color-connected-bg: #c2d9ff;
+        /* [核心修复] 固化并增大设备卡片垂直内边距 */
+        --device-item-vertical-padding: 14px;
+        --color-primary-container: #e6f2ff; /* 定义高亮动画所需的淡蓝色 */
+        /* [核心修复] 固化并增大设备卡片垂直内边距 */
+        --device-item-vertical-padding: 14px;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html,
+      body {
+        height: 100%;
+        background-color: var(--color-background);
+        color: var(--color-on-surface);
+        font-family: "Roboto", sans-serif;
+        overflow: hidden;
+        -webkit-tap-highlight-color: transparent; /* 移除移动端点击元素时的高亮背景 */
+      }
+      .app-container {
+        height: 100%;
+        position: relative;
+      }
+      .app-header {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 var(--padding-m);
+
+        /* [修复] 移除多余的 24px，让高度恢复正常 */
+        height: calc(var(--header-height) + env(safe-area-inset-top, 0px));
+
+        /* [修复] 仅保留安全区域作为顶部内边距 */
+        padding-top: env(safe-area-inset-top, 0px);
+
+        background-color: var(--color-surface-container-highest);
+        border-bottom: 1px solid var(--color-outline);
+        z-index: 100;
+      }
+      .header-title-group {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .header-title-group .title {
+        font-size: 22px;
+        font-weight: 700;
+        background: linear-gradient(45deg, #3498db, #8e44ad);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      .status-area {
+        display: flex;
+        align-items: center;
+        gap: var(--gap-s);
+        font-size: 12px;
+        color: var(--color-on-surface-variant);
+      }
+      .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        transition: background-color 0.5s;
+      }
+      .status-dot.connected {
+        background-color: var(--color-success);
+      }
+      .status-dot.disconnected {
+        background-color: var(--color-error);
+      }
+      .page-content {
+        height: 100%;
+        position: relative;
+      }
+      .page {
+        position: absolute;
+        top: calc(var(--header-height) + env(safe-area-inset-top, 0px));
+        left: 0;
+        right: 0;
+        bottom: var(--nav-height);
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity var(--anim-duration) ease-in-out,
+          visibility var(--anim-duration) ease-in-out;
+        overflow-y: auto;
+        background-color: var(--color-background);
+        padding: var(--padding-m);
+      }
+      .page.active {
+        opacity: 1;
+        visibility: visible;
+        z-index: 10;
+      }
+      .app-nav {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        display: flex;
+        height: var(--nav-height);
+        background-color: var(--color-surface-container-highest);
+        border-top: 1px solid var(--color-outline);
+        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+        z-index: 100;
+      }
+      .nav-item {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        cursor: pointer;
+        color: var(--color-on-surface-variant);
+        transition: color 0.3s;
+      }
+      .nav-item .material-symbols-outlined {
+        font-size: 24px;
+      }
+      .nav-item .nav-label {
+        font-size: 12px;
+        font-weight: 500;
+      }
+      .nav-item.active {
+        color: var(--color-accent);
+      }
+      #relayListContainer {
+        padding: 0;
+      }
+      .relay-card {
+        background: var(--color-surface-container-low);
+        border-radius: var(--radius-m);
+        margin-bottom: var(--gap-m);
+        border: 1px solid var(--color-outline);
+        overflow: hidden;
+      }
+      .relay-header {
+        display: flex;
+        align-items: center;
+        padding: var(--padding-m);
+        cursor: pointer;
+      }
+      .relay-title {
+        flex-grow: 1;
+        font-size: 18px;
+        font-weight: 500;
+      }
+      .summary-icons {
+        display: flex;
+        align-items: center;
+        gap: var(--gap-s);
+      }
+      /* [新增] 修正时钟图标的显示/隐藏逻辑 */
+      .summary-icons .timer-indicator {
+        display: none; /* 默认隐藏 */
+        color: var(--color-accent);
+        font-size: 16px;
+        vertical-align: middle;
+      }
+      .relay-card.timer-active .summary-icons .timer-indicator {
+        display: inline-block; /* 当卡片有定时任务时才显示 */
+        animation: pulse-timer-icon 2s infinite cubic-bezier(0.4, 0, 0.6, 1);
+      }
+      .status-indicator {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: var(--color-inactive);
+      }
+      .relay-card[data-status="on"] .status-indicator {
+        background: var(--color-success);
+      }
+      .relay-card[data-status="off"] .status-indicator {
+        background: var(--color-error);
+      }
+      .edit-btn,
+      .expand-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: var(--color-on-surface-variant);
+        padding: var(--padding-s);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .expand-btn {
+        transition: transform var(--anim-duration) var(--anim-curve);
+      }
+      .relay-card.is-expanded .expand-btn {
+        transform: rotate(180deg);
+      }
+      .relay-content {
+        padding: 0 var(--padding-m) var(--padding-m);
+        border-top: 1px solid var(--color-outline);
+      }
+      .relay-switch {
+        position: relative;
+        display: flex;
+        width: 100%;
+        height: 48px;
+        margin-top: var(--gap-m);
+        background: var(--color-accent-container);
+        border-radius: var(--radius-l);
+        overflow: hidden;
+        box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
+        transition: opacity 0.3s, filter 0.3s;
+      }
+      .relay-switch.disabled {
+        opacity: 0.6;
+        filter: grayscale(50%);
+        pointer-events: none;
+      }
+      .relay-switch button {
+        width: 50%;
+        height: 100%;
+        line-height: 48px;
+        background: transparent;
+        border: none;
+        font-size: 15px;
+        font-weight: 500;
+        color: var(--color-accent);
+        cursor: pointer;
+        position: relative;
+        z-index: 1;
+        transition: color 0.3s ease;
+      }
+      .relay-switch .slider {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 50%;
+        background: var(--color-accent);
+        border-radius: var(--radius-l);
+        transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1.2);
+        z-index: 0;
+        pointer-events: none;
+      }
+      .relay-switch.is-on .slider {
+        transform: translateX(100%);
+      }
+      .relay-switch.is-off .slider {
+        transform: translateX(0);
+      }
+      .relay-switch.is-off button:nth-child(2) {
+        color: var(--color-on-accent);
+      }
+      .relay-switch.is-on button:nth-child(3) {
+        color: var(--color-on-accent);
+      }
+      .card-extra-content {
+        max-height: 0;
+        opacity: 0;
+        overflow: hidden;
+        transition: max-height var(--anim-duration) var(--anim-curve),
+          opacity var(--anim-duration) ease;
+      }
+      .card-extra-content > div {
+        /* 将 hidden 改为 visible，允许浮动提示框超出范围显示 */
+        padding-top: var(--padding-m);
+      }
+      .relay-card.is-expanded .card-extra-content {
+        max-height: 960px;
+        opacity: 1;
+        overflow: visible;
+      }
+      .auto-cycle-group,
+      .timed-task-group {
+        padding-top: var(--padding-m);
+        margin-top: var(--gap-m);
+        border-top: 1px dashed var(--color-outline);
+      }
+      h3.colorful-subtitle {
+        font-size: 14px;
+        font-weight: 500;
+        background: linear-gradient(45deg, #f39c12, #e74c3c);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      .auto-cycle-header,
+      .timed-task-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: var(--gap-m);
+        gap: var(--gap-s);
+      }
+      .auto-cycle-controls {
+        display: flex;
+        align-items: center;
+        gap: var(--gap-m);
+      }
+      .auto-cycle-controls span {
+        font-size: 12px;
+        color: var(--color-on-surface-variant);
+        min-width: 60px;
+      }
+      .auto-cycle-controls md-slider {
+        flex-grow: 1;
+        --md-sys-color-primary: var(--color-accent);
+        --md-sys-color-on-primary: var(--color-on-accent);
+      }
+      .timer-mode-switch {
+        position: relative;
+        display: flex;
+        width: 100%;
+        height: 40px;
+        margin-bottom: var(--gap-m);
+        background: var(--color-accent-container);
+        border-radius: var(--radius-l);
+        overflow: hidden;
+        padding: 4px;
+      }
+      .timer-mode-switch button {
+        width: 50%;
+        height: 100%;
+        line-height: 32px;
+        background: transparent;
+        border: none;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--color-on-accent-container);
+        cursor: pointer;
+        position: relative;
+        z-index: 1;
+        transition: color 0.3s ease;
+      }
+      .timer-mode-switch .slider {
+        position: absolute;
+        top: 4px;
+        bottom: 4px;
+        width: calc(50% - 4px);
+        background: var(--color-surface-container-highest);
+        border-radius: var(--radius-l);
+        z-index: 0;
+        pointer-events: none;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        left: 4px;
+        transition: left 0.4s cubic-bezier(0.22, 1, 0.36, 1.2);
+      }
+      .timer-mode-switch.mode-scheduled .slider {
+        left: 50%;
+      }
+      .timer-mode-switch.mode-countdown button:nth-child(2) {
+        color: var(--color-on-accent-container);
+      }
+      .timer-mode-switch.mode-scheduled button:nth-child(3) {
+        color: var(--color-on-accent-container);
+      }
+      .time-picker-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: var(--gap-s);
+        height: 120px;
+        margin-bottom: var(--gap-m);
+        position: relative;
+      }
+      .time-picker-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        pointer-events: none;
+        border-top: 1px solid var(--color-outline);
+        border-bottom: 1px solid var(--color-outline);
+        margin: 40px 0;
+      }
+      .picker-wheel {
+        height: 100%;
+        width: 60px;
+        overflow-y: hidden;
+        touch-action: none;
+        cursor: grab;
+      }
+      .picker-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+      .picker-item {
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        color: var(--color-on-surface-variant);
+      }
+      .picker-label {
+        align-self: center;
+        font-size: 16px;
+        color: var(--color-on-surface-variant);
+      }
+      .timer-action-area {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: var(--gap-m);
+      }
+      .timer-action-area .timer-action-prompt {
+        font-size: 13px;
+        color: var(--color-on-surface-variant);
+      }
+      .timer-action-area .action-switch-label {
+        display: flex;
+        align-items: center;
+        font-size: 13px;
+        gap: 4px;
+      }
+      .timer-controls {
+        display: flex;
+        margin-top: var(--gap-m);
+      }
+      .timer-controls md-filled-button {
+        flex-grow: 1;
+        --md-filled-button-container-color: var(--color-accent);
+        --md-filled-button-label-text-color: var(--color-on-accent);
+      }
+      .timer-status-list {
+        display: flex;
+        flex-direction: column;
+        gap: var(--gap-s);
+        margin-top: var(--gap-m);
+      }
+      .timer-status-item {
+        font-size: 13px;
+        padding: var(--padding-s) var(--padding-m);
+        background-color: var(--color-accent-container);
+        color: var(--color-on-accent-container);
+        border-radius: var(--radius-m);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .timer-status-item md-text-button {
+        --md-text-button-label-text-color: var(--color-accent);
+      }
+      #addRelayWrapper {
+        display: flex;
+        justify-content: center;
+        padding-top: var(--gap-m);
+      }
+      #addRelayButton {
+        width: 100%;
+        --md-filled-tonal-button-container-shape: var(--radius-l);
+        --md-filled-tonal-button-container-height: 56px;
+        --md-filled-tonal-button-container-color: var(--color-accent-container);
+        --md-filled-tonal-button-label-text-color: var(--color-accent);
+      }
+      #editModal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 200;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity var(--anim-duration) ease-in-out;
+        -webkit-backdrop-filter: blur(8px);
+        backdrop-filter: blur(8px);
+        background-color: rgba(255, 255, 255, 0.1);
+      }
+      #editModal.show {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      .modal-content {
+        background: var(--color-surface-container-highest);
+        padding: 24px;
+        border-radius: var(--radius-l);
+        width: calc(100% - 32px);
+        max-width: 400px;
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+        transform: scale(0.9);
+        transition: transform var(--anim-duration) var(--anim-curve),
+          opacity var(--anim-duration) var(--anim-curve);
+      }
+      #editModal.show .modal-content {
+        transform: scale(1);
+      }
+      .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: var(--gap-m);
+      }
+      .modal-header h2 {
+        margin: 0;
+        font-size: 24px;
+      }
+      .modal-header .delete-icon-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: var(--color-on-surface-variant);
+        padding: var(--padding-s);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .modal-content md-outlined-text-field {
+        width: 100%;
+        margin-bottom: var(--gap-m);
+        --md-outlined-text-field-focus-outline-color: var(--color-accent);
+        --md-outlined-text-field-focus-label-text-color: var(--color-accent);
+      }
+      .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: var(--gap-s);
+        margin-top: 24px;
+      }
+      #saveEdit {
+        flex-grow: 1;
+        max-width: 80%;
+        --md-filled-button-container-color: var(--color-accent);
+        --md-filled-button-label-text-color: var(--color-on-accent);
+      }
+      #cancelEdit {
+        --md-text-button-label-text-color: var(--color-accent);
+      }
+      #deleteConfirmButton {
+        --md-filled-button-container-color: var(--color-error);
+        --md-filled-button-label-text-color: #ffffff;
+        flex-grow: 1;
+      }
+      #cancelDelete {
+        --md-text-button-label-text-color: var(--color-on-surface-variant);
+      }
+      #page-command-debug {
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      #page-command-debug .message-list {
+        flex-grow: 1;
+        overflow-y: auto;
+        padding: var(--padding-m);
+        display: flex;
+        flex-direction: column;
+        gap: var(--gap-m);
+        padding-bottom: 84px;
+      }
+      @keyframes slide-in-up {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      #page-command-debug .message-bubble {
+        max-width: 85%;
+        padding: 12px var(--padding-m);
+        border-radius: var(--radius-m);
+        font-family: "Menlo", "Courier New", Courier, monospace;
+        font-size: 14px;
+        word-wrap: break-word;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        animation: slide-in-up 0.5s var(--anim-curve);
+        border: 1px solid transparent;
+      }
+      #page-command-debug .message-bubble .timestamp {
+        display: block;
+        font-size: 10px;
+        margin-top: var(--gap-s);
+        text-align: right;
+        font-family: "Roboto", sans-serif;
+        opacity: 0.7;
+      }
+      #page-command-debug .message-bubble.sent {
+        background-color: var(--color-accent);
+        color: var(--color-on-accent);
+        align-self: flex-end;
+        border-bottom-right-radius: 4px;
+      }
+      #page-command-debug .message-bubble.sent .timestamp {
+        color: var(--color-on-accent);
+      }
+      #page-command-debug .message-bubble.received {
+        background-color: var(--color-surface-container-low);
+        color: var(--color-on-surface);
+        border-color: var(--color-outline);
+        align-self: flex-start;
+        border-bottom-left-radius: 4px;
+      }
+      #page-command-debug .message-bubble.received .timestamp {
+        color: var(--color-on-surface-variant);
+      }
+      #page-command-debug .input-footer {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 10;
+        transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        padding: var(--padding-m);
+        background-color: var(--color-surface-container-highest);
+        box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.03);
+        border-top-left-radius: var(--radius-m);
+        border-top-right-radius: var(--radius-m);
+      }
+      #page-command-debug .input-row {
+        display: flex;
+        align-items: center;
+        gap: var(--gap-s);
+      }
+      #page-command-debug .input-row .icon-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 52px;
+        height: 52px;
+        border-radius: 50%;
+        border: 1px solid var(--color-outline);
+        background-color: var(--color-surface-container-low);
+        color: var(--color-on-surface-variant);
+        cursor: pointer;
+        flex-shrink: 0;
+        transition: all 0.3s;
+      }
+      #page-command-debug .input-row .icon-btn:hover {
+        border-color: var(--color-accent);
+        color: var(--color-accent);
+      }
+      #page-command-debug .input-row .input-wrapper {
+        flex-grow: 1;
+        position: relative;
+      }
+      #page-command-debug .input-row .input-wrapper input {
+        width: 100%;
+        height: 52px;
+        padding: 0 var(--padding-m);
+        border: 1px solid var(--color-outline);
+        border-radius: var(--radius-m);
+        font-size: 16px;
+        background-color: var(--color-surface-container-low);
+      }
+      #page-command-debug .input-row .send-btn {
+        background-color: var(--color-accent);
+        color: var(--color-on-accent);
+        border: none;
+      }
+      .panel-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.4);
+        z-index: 150;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.4s ease;
+      }
+      .panel-overlay.show {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      #statsPanel {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background-color: var(--color-surface-container-highest);
+        border-top-left-radius: var(--radius-m);
+        border-top-right-radius: var(--radius-m);
+        z-index: 200;
+        padding: var(--padding-m) var(--padding-l) calc(var(--padding-l));
+        box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.1);
+        transform: translateY(100%);
+        transition: transform 0.4s var(--anim-curve);
+      }
+      #statsPanel.show {
+        transform: translateY(0);
+      }
+      #statsPanel h3 {
+        font-size: 18px;
+        margin-bottom: var(--gap-m);
+        text-align: center;
+      }
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: var(--gap-m);
+        margin-bottom: var(--padding-l);
+      }
+      .stat-item {
+        text-align: center;
+      }
+      .stat-item .value {
+        font-size: 24px;
+        font-weight: 700;
+      }
+      .stat-item .label {
+        font-size: 12px;
+        color: var(--color-on-surface-variant);
+      }
+      .stat-item .value.sent-success {
+        color: var(--color-success);
+      }
+      .stat-item .value.sent-fail {
+        color: var(--color-error);
+      }
+      .stat-item .value.received {
+        color: var(--color-accent);
+      }
+      .panel-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: var(--gap-m);
+      }
+      .panel-row .label {
+        font-size: 14px;
+        font-weight: 500;
+      }
+      .switch {
+        cursor: pointer;
+        display: inline-block;
+        position: relative;
+        width: 38px;
+        height: 22px;
+      }
+      .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+      .slider.round {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: var(--color-inactive);
+        border-radius: 22px;
+        transition: 0.4s;
+      }
+      .slider.round:before {
+        position: absolute;
+        content: "";
+        height: 18px;
+        width: 18px;
+        left: 2px;
+        bottom: 2px;
+        background-color: white;
+        border-radius: 50%;
+        transition: 0.4s;
+      }
+      input:checked + .slider.round {
+        background-color: var(--color-accent);
+      }
+      input:checked + .slider.round:before {
+        transform: translateX(16px);
+      }
+      .format-toggle-group {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+      }
+      .toggle-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: var(--gap-s);
+      }
+      .toggle-label {
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--color-on-surface-variant);
+      }
+      .format-toggle {
+        display: flex;
+        align-items: center;
+        background-color: var(--color-surface-container-low);
+        padding: 4px;
+        border-radius: var(--radius-l);
+        position: relative;
+      }
+      .format-toggle input[type="radio"] {
+        display: none;
+      }
+      .format-toggle label {
+        padding: 6px 12px;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--color-on-surface-variant);
+        border-radius: var(--radius-l);
+        cursor: pointer;
+        position: relative;
+        z-index: 2;
+        transition: color 0.3s ease;
+      }
+      .format-toggle input[type="radio"]:checked + label {
+        color: var(--color-on-accent);
+      }
+      .format-toggle .toggle-slider {
+        position: absolute;
+        top: 4px;
+        bottom: 4px;
+        width: calc(50% - 4px);
+        background-color: var(--color-accent);
+        border-radius: var(--radius-l);
+        z-index: 1;
+        transition: transform 0.4s var(--anim-curve);
+      }
+      .format-toggle
+        input[type="radio"][value="text"]:checked
+        ~ .toggle-slider {
+        transform: translateX(100%);
+      }
+      #confirmDialog {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%) scale(0.9);
+        background-color: var(--color-surface-container-highest);
+        border-radius: var(--radius-m);
+        padding: var(--padding-l);
+        z-index: 250;
+        width: calc(100% - 48px);
+        max-width: 320px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+        opacity: 0;
+        pointer-events: none;
+        transition: all 0.4s var(--anim-curve);
+      }
+      #confirmDialog.show {
+        opacity: 1;
+        pointer-events: auto;
+        transform: translate(-50%, -50%) scale(1);
+      }
+      #confirmDialog p {
+        margin: 0;
+        margin-bottom: var(--gap-m);
+        font-size: 14px;
+        line-height: 1.5;
+      }
+      .dialog-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: var(--gap-s);
+      }
+      .dialog-actions button {
+        padding: 8px 16px;
+        border-radius: var(--radius-l);
+        border: none;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background-color 0.3s;
+      }
+      #confirmCancel {
+        background-color: transparent;
+        color: var(--color-on-surface-variant);
+      }
+      #confirmAction {
+        background-color: var(--color-error);
+        color: white;
+      }
+      #page-about .content-card {
+        background-color: var(--color-surface-container-low);
+        padding: var(--padding-m);
+        border-radius: var(--radius-m);
+        margin-bottom: var(--gap-m);
+      }
+      #page-about h2 {
+        font-size: 20px;
+        color: var(--color-accent);
+        margin: 0; /* 清除所有外边距 */
+      }
+      #page-about h3 {
+        font-size: 16px;
+        margin-top: var(--gap-m);
+        margin-bottom: var(--gap-s);
+        color: var(--color-on-surface);
+      }
+      #page-about p,
+      #page-about li {
+        font-size: 14px;
+        line-height: 1.6;
+        color: var(--color-on-surface-variant);
+      }
+      #page-about ul,
+      #page-about ol {
+        padding-left: 20px;
+        margin-top: var(--gap-s);
+      }
+      #page-about code {
+        background-color: var(--color-outline);
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-family: "Menlo", monospace;
+        font-size: 13px;
+      }
+      #page-about .info-chip {
+        display: inline-block;
+        background-color: var(--color-accent-container);
+        color: var(--color-on-accent-container);
+        padding: 4px 10px;
+        border-radius: var(--radius-l);
+        font-weight: 500;
+        margin-top: var(--gap-s);
+      }
+      #page-about .material-symbols-outlined {
+        font-size: 1.2em;
+        vertical-align: middle;
+        line-height: 1;
+      }
+      #bluetoothFab {
+        position: fixed;
+        bottom: calc(var(--nav-height) + var(--padding-m));
+        right: var(--padding-m);
+        z-index: 20;
+        --md-fab-container-color: var(--color-accent);
+        --md-fab-icon-color: var(--color-on-accent);
+        transition: transform 0.3s var(--anim-curve),
+          opacity 0.3s var(--anim-curve);
+      }
+      #bluetoothFab.hidden {
+        transform: scale(0);
+        opacity: 0;
+      }
+      #toast {
+        position: fixed;
+        bottom: -100px;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: #333;
+        color: #fff;
+        padding: var(--padding-s) var(--padding-m);
+        border-radius: var(--radius-l);
+        font-size: 14px;
+        z-index: 300;
+        transition: bottom 0.5s ease;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+      }
+      @keyframes pulse-timer-icon {
+        0%,
+        100% {
+          transform: scale(1);
+          opacity: 0.7;
+        }
+        50% {
+          transform: scale(1.2);
+          opacity: 1;
+        }
+      }
+
+      /* Log Page Styles */
+      #page-log {
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      #logContainer {
+        flex-grow: 1;
+        overflow-y: auto;
+      }
+      .log-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+        table-layout: fixed;
+      }
+      .log-table thead {
+        position: sticky;
+        top: 0;
+        background-color: var(--color-surface-container-low);
+        z-index: 1;
+      }
+      .log-table th {
+        padding: 12px var(--padding-m);
+        text-align: left;
+        font-weight: 500;
+        color: var(--color-on-surface-variant);
+        border-bottom: 1px solid var(--color-outline);
+      }
+      .log-table td {
+        padding: 14px 24px;
+        border-bottom: 1px solid var(--color-outline);
+        line-height: 1.5;
+        vertical-align: middle;
+      }
+
+      /* [新增] 将第二列（内容）的文本和标题居中对齐，以实现视觉上的间距均衡 */
+      .log-table th:nth-child(2),
+      .log-table td:nth-child(2) {
+        text-align: center;
+      }
+
+      /* [修改] 为第一列（时间/类型）设置最小宽度，防止被过度挤压 */
+      .log-table th:first-child,
+      .log-table td:first-child {
+        min-width: 95px;
+        width: 95px;
+      }
+
+      .log-timestamp-type {
+        font-family: "Menlo", "Courier New", monospace;
+      }
+      .log-timestamp-type .log-type-badge {
+        display: inline-block; /* 使其可以应用边距 */
+        margin-top: 4px;
+        padding: 3px 8px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 500;
+        font-family: "Roboto", sans-serif;
+      }
+      .log-type-badge.sent {
+        background-color: var(--color-accent-container);
+        color: var(--color-on-accent-container);
+      }
+      .log-type-badge.received {
+        background-color: #e8f5e9;
+        color: #2e7d32;
+      }
+      .log-type-badge.system {
+        background-color: #f3e5f5;
+        color: #6a1b9a;
+      }
+      .log-type-badge.error {
+        background-color: #fbe9e7;
+        color: #d84315;
+      }
+
+      /* [修改] 让内容可以优雅地换行，适应文本和HEX */
+      .log-content {
+        font-family: "Menlo", "Courier New", monospace;
+        word-break: break-word;
+        white-space: pre-wrap; /* 保留空格和换行符 */
+      }
+      .log-description {
+        color: var(--color-on-surface-variant);
+        font-family: "Roboto", sans-serif;
+      }
+      .log-placeholder {
+        text-align: center;
+        margin-top: 48px;
+        color: var(--color-on-surface-variant);
+      }
+      .log-placeholder .material-symbols-outlined {
+        font-size: 48px;
+        margin-bottom: var(--gap-s);
+      }
+      /* --- 全新弹窗样式 开始 --- */
+      #page-about .payment-modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 200;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-backdrop-filter: blur(8px);
+        backdrop-filter: blur(8px);
+        background-color: rgba(255, 255, 255, 0.1);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s ease-in-out;
+      }
+      /* 使用 :target 伪类来控制显示，无需JS */
+      #page-about .payment-modal-overlay:target {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      #page-about .payment-modal-content {
+        background: var(--color-surface-container-highest);
+        padding: 24px;
+        border-radius: var(--radius-l, 28px);
+        width: calc(100% - 32px);
+        max-width: 400px;
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+        transform: scale(0.9);
+        transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+      }
+      #page-about .payment-modal-overlay:target .payment-modal-content {
+        transform: scale(1);
+      }
+      /* --- 全新玻璃拟态支付切换按钮样式 (最终修复版) --- */
+      .payment-toggle-glass {
+        /* [修复2] 改用半透明亮色背景，恢复玻璃拟态效果 */
+        --bg: rgba(255, 255, 255, 0.4);
+        --text: #1a1c1e; /* 确保在亮背景下文字清晰 */
+
+        display: flex;
+        position: relative;
+        background: var(--bg);
+        border-radius: 1rem;
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        box-shadow: inset 1px 1px 3px rgba(255, 255, 255, 0.5),
+          /* 调整为亮色内阴影 */ inset -1px -1px 4px rgba(0, 0, 0, 0.15),
+          0 4px 12px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        width: fit-content;
+        margin: 0 auto 20px;
+        border: 1px solid rgba(255, 255, 255, 0.2); /* 增加一个细微的亮边，强化轮廓 */
+      }
+
+      .payment-toggle-glass input {
+        display: none;
+      }
+
+      .payment-toggle-glass label {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 100px;
+        font-size: 14px;
+        padding: 0.8rem 1.6rem;
+        cursor: pointer;
+        font-weight: 500;
+        letter-spacing: 0.3px;
+        color: var(--text);
+        position: relative;
+        z-index: 2;
+        transition: color 0.4s ease-in-out;
+        /* [修复1] 强制文字不换行，解决“又窄又宽”的问题 */
+        white-space: nowrap;
+      }
+
+      .payment-toggle-glass label:hover {
+        color: #000;
+      }
+
+      .payment-toggle-glass input:checked + label {
+        color: #fff;
+      }
+
+      .payment-glider-glass {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 50%;
+        border-radius: 1rem;
+        z-index: 1;
+        /* [修复3] 恢复带有“弹性”的动画曲线 */
+        transition: transform 0.5s cubic-bezier(0.37, 1.95, 0.66, 0.56),
+          background 0.4s ease-in-out, box-shadow 0.4s ease-in-out;
+      }
+
+      /* 微信绿 */
+      #wx-radio:checked ~ .payment-glider-glass {
+        transform: translateX(0%);
+        background: linear-gradient(135deg, #07c16077, #09bb5e);
+        box-shadow: 0 0 18px rgba(7, 193, 96, 0.6),
+          0 0 10px rgba(100, 255, 150, 0.5) inset;
+      }
+
+      /* 支付宝蓝 */
+      #zfb-radio:checked ~ .payment-glider-glass {
+        transform: translateX(100%);
+        background: linear-gradient(135deg, #027aff77, #0077ff);
+        box-shadow: 0 0 18px rgba(2, 122, 255, 0.6),
+          0 0 10px rgba(150, 200, 255, 0.5) inset;
+      }
+      /* --- 样式结束 --- */
+      /* 图片容器和图片样式 */
+      #page-about .qr-image-container {
+        text-align: center;
+      }
+      #page-about .qr-image {
+        display: none; /* 默认所有图片都隐藏 */
+        width: 210px; /* 修正后的宽度 */
+        height: 280px; /* 修正后的高度，实现4:3高:宽比 */
+        border-radius: var(--radius-m);
+        border: 1px solid var(--color-outline);
+        object-fit: contain;
+      }
+      /* --- 全新弹窗样式 结束 --- */
+
+      /* --- 扫描弹窗样式 --- */
+      /* [新增] 扫描弹窗中设备图标的样式 */
+      .device-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background-color: var(--color-accent-container);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--color-accent);
+      }
+      .device-icon .material-symbols-outlined {
+        font-size: 22px;
+      }
+      #scanDialog {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 200;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s ease-in-out;
+        -webkit-backdrop-filter: blur(8px);
+        backdrop-filter: blur(8px);
+        background-color: rgba(255, 255, 255, 0.1);
+      }
+      #scanDialog.show {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      .scan-dialog-content {
+        background: var(--color-surface-container-highest);
+        padding: var(--padding-m) var(--padding-l);
+        border-radius: var(--radius-l);
+        width: calc(100% - 32px);
+        max-width: 420px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+        transform: scale(0.9);
+        opacity: 0;
+        transition: transform var(--anim-duration) var(--anim-curve),
+          opacity var(--anim-duration) ease-out;
+        -webkit-transform: scale(0.9);
+        -webkit-transition: -webkit-transform var(--anim-duration)
+            var(--anim-curve),
+          opacity var(--anim-duration) ease-out;
+        height: min(680px, 88vh);
+        min-height: min(560px, 88vh);
+        display: flex;
+        flex-direction: column;
+      }
+      #scanDialog.show .scan-dialog-content {
+        transform: scale(1);
+        opacity: 1;
+        -webkit-transform: scale(1);
+      }
+
+      .scan-dialog-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: var(--gap-s);
+      }
+      .scan-dialog-header h2 {
+        margin: 0;
+        font-size: 22px;
+      }
+      .scan-dialog-header .close-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: var(--color-on-surface-variant);
+        padding: var(--padding-s);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .scan-animation-bar {
+        height: 3px;
+        width: 100%;
+        background-color: var(--color-outline);
+        position: relative;
+        overflow: hidden;
+        margin-bottom: var(--gap-s);
+        border-radius: 3px;
+      }
+      .scan-animation-bar::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 100%;
+        width: 100%;
+        background: var(--color-inactive);
+        opacity: 0.5;
+        transform: translateX(0);
+      }
+      .scan-animation-bar.is-scanning::after {
+        width: 30%;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          var(--color-accent),
+          transparent
+        );
+        opacity: 1;
+        animation: scan-line-animation 2s linear infinite;
+      }
+      @keyframes scan-line-animation {
+        from {
+          transform: translateX(-100%);
+        }
+        to {
+          transform: translateX(333%);
+        }
+      }
+
+      #deviceScanList {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        overflow-y: scroll;
+        border-bottom: 1px solid var(--color-outline);
+        flex: 1;
+        min-height: 280px;
+      }
+
+      #deviceScanList::-webkit-scrollbar {
+        width: 6px;
+      }
+      #deviceScanList::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      #deviceScanList::-webkit-scrollbar-thumb {
+        background-color: var(--color-outline);
+        border-radius: 3px;
+      }
+
+      .device-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: var(--device-item-vertical-padding) 12px;
+        cursor: pointer;
+        border-bottom: 1px solid var(--color-outline);
+        opacity: 0;
+      }
+
+      .device-item:last-child {
+        border-bottom: none;
+      }
+      .device-item:not(.is-connected):hover {
+        background-color: var(--color-surface-container-low);
+      }
+
+      .device-info {
+        flex-grow: 1;
+        min-width: 0;
+      }
+
+      .device-name {
+        display: block;
+        font-weight: 500;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .device-address {
+        display: block;
+        font-size: 12px;
+        color: var(--color-on-surface-variant);
+      }
+
+      .device-status-badge {
+        font-size: 10px;
+        font-weight: 500;
+        color: var(--color-on-accent);
+        padding: 2px 6px;
+        border-radius: var(--radius-s);
+        flex-shrink: 0;
+      }
+      .device-status-badge.recent {
+        background-color: var(--color-accent);
+      }
+      .device-status-badge.connected {
+        background-color: var(--color-success);
+      }
+
+      .device-item.recent-device-0 {
+        background-color: var(--color-recent-1);
+      }
+      .device-item.recent-device-1 {
+        background-color: var(--color-recent-2);
+      }
+      .device-item.recent-device-2 {
+        background-color: var(--color-recent-3);
+      }
+      .device-item.is-connected {
+        background-color: var(--color-connected-bg);
+        cursor: default;
+      }
+
+      .scan-dialog-actions {
+        margin-top: var(--gap-m);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .scan-dialog-settings {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--gap-m);
+        padding-top: var(--gap-m);
+      }
+      .scan-dialog-settings .setting-text {
+        flex: 1;
+        min-width: 0;
+      }
+      .scan-dialog-settings .setting-title {
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--color-on-surface);
+      }
+      .scan-dialog-settings .setting-description {
+        display: none;
+        margin-top: 4px;
+        font-size: 12px;
+        line-height: 1.5;
+        color: var(--color-on-surface-variant);
+      }
+
+      /* [新增代码] 修复“关于”页面中标题和图标不在同一行的问题 */
+      #page-about .about-header {
+        display: flex;
+        align-items: center;
+        gap: var(--gap-s, 8px);
+        margin-bottom: var(--gap-m);
+        padding-bottom: var(--gap-s);
+        border-bottom: 2px solid var(--color-accent-container);
+      }
+
+      /* [新增代码] 优化“核心功能详解”列表的样式 */
+      #page-about .feature-list {
+        display: flex;
+        flex-direction: column;
+        gap: var(--gap-m);
+      }
+      #page-about .feature-item {
+        display: flex;
+        align-items: flex-start;
+        gap: var(--padding-m);
+      }
+
+      /* --- 2. 页面主体布局 --- */
+      .about-page-container {
+        max-width: 600px;
+        margin: 0 auto;
+        padding-top: 160px;
+        padding-bottom: var(--padding-l);
+      }
+
+      /* --- 3. 页头结构 --- */
+      .page-header {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 1;
+      }
+
+      .interactive-header-card {
+        position: relative;
+        width: 100%;
+        height: 200px;
+      }
+
+      #card {
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        border-radius: 0 0 100% 100% / 0 0 160px 160px;
+        /* [修改] 移除全局过渡，使滚动模糊效果即时响应 */
+        background: linear-gradient(
+          43deg,
+          rgb(65, 88, 208) 0%,
+          rgb(200, 80, 192) 46%,
+          rgb(255, 204, 112) 100%
+        );
+        padding: 20px var(--padding-m) 40px;
+        overflow: hidden;
+        filter: blur(var(--header-blur, 0px));
+        opacity: var(--header-opacity, 1);
+        will-change: filter, opacity;
+      }
+
+      #prompt {
+        top: 45%;
+        left: 0;
+        right: 0;
+        transform: translateY(-50%);
+        z-index: 20;
+        transition: 300ms ease-in-out;
+        position: absolute;
+        text-align: center;
+        padding: 0 var(--padding-m);
+        color: white;
+      }
+
+      .main-title {
+        font-size: 24px;
+        font-weight: 700;
+        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        margin: 0;
+      }
+
+      .version-info {
+        font-size: 13px;
+        font-weight: 400;
+        color: #ffffff;
+        margin-top: 8px;
+        background-color: rgba(255, 255, 255, 0.25);
+        padding: 4px 10px;
+        border-radius: 12px;
+        display: inline-block;
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+      }
+
+      #card:hover {
+        filter: brightness(1.1) blur(var(--header-blur, 0px));
+        transition: filter 300ms ease-in-out; /* [修改] 仅为悬停效果添加过渡 */
+      }
+
+      #card::before {
+        content: "";
+        background: linear-gradient(
+          43deg,
+          rgb(65, 88, 208) 0%,
+          rgb(200, 80, 192) 46%,
+          rgb(255, 204, 112) 100%
+        );
+        filter: blur(2rem);
+        opacity: 30%;
+        width: 100%;
+        height: 100%;
+        position: absolute;
+        z-index: -1;
+        transition: opacity 200ms;
+      }
+
+      #card:hover::before {
+        opacity: 0.5;
+      }
+
+      /* --- 4. 内容卡片通用样式 --- */
+      .content-card-wrapper {
+        padding: 0 var(--padding-m);
+        position: relative;
+        z-index: 2;
+      }
+
+      .content-card {
+        position: relative;
+        background-color: var(--color-surface-card);
+        border-radius: var(--radius-l);
+        padding: var(--padding-l);
+        margin-bottom: 24px;
+        border: 1px solid var(--color-outline);
+        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        opacity: 0;
+        transform: translateY(50px);
+        transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+      }
+
+      .content-card.is-visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      .content-card::before {
+        content: "";
+        position: absolute;
+        top: -2px;
+        left: -2px;
+        right: -2px;
+        bottom: -2px;
+        z-index: -1;
+        border-radius: inherit;
+        background: conic-gradient(
+          from var(--gradient-angle, 0deg),
+          #84fab0,
+          #8fd3f4,
+          #a18cd1,
+          #fbc2eb,
+          #84fab0
+        );
+        filter: blur(10px);
+        opacity: 0;
+        transition: opacity 0.4s ease-out;
+        background-position: calc(var(--mouse-x, 50) * 1%)
+          calc(var(--mouse-y, 50) * 1%);
+      }
+
+      .content-card:hover::before {
+        opacity: 0.7;
+      }
+
+      @keyframes aurora-flow {
+        to {
+          --gradient-angle: 360deg;
+        }
+      }
+
+      .content-card {
+        --gradient-angle: 0deg;
+        animation: aurora-flow 8s linear infinite;
+      }
+
+      .card-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 20px;
+      }
+
+      .card-header .material-symbols-outlined {
+        color: var(--color-accent);
+        font-size: 28px;
+      }
+
+      .card-header h2 {
+        font-size: 20px;
+        font-weight: 700;
+      }
+
+      /* --- 5. 特定卡片内容样式 --- */
+
+      .author-card {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background-color: var(--color-accent-light);
+        padding: 12px var(--padding-m);
+        border-radius: var(--radius-m);
+        margin-bottom: 16px;
+      }
+      .author-info .name {
+        font-weight: 500;
+      }
+      .author-info .bio {
+        font-size: 12px;
+        color: var(--color-text-secondary);
+      }
+      .ai-collab {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11px;
+        font-weight: 500;
+      }
+      .contact-info {
+        font-size: 13px;
+        color: var(--color-text-secondary);
+        line-height: 1.6;
+      }
+
+      .feature-list {
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+      }
+      .feature-item {
+        display: flex;
+        align-items: flex-start;
+        gap: var(--padding-m);
+      }
+      .feature-item .material-symbols-outlined {
+        color: var(--color-accent);
+        margin-top: 2px;
+      }
+      .feature-item h4 {
+        font-size: 16px;
+        font-weight: 500;
+        margin-bottom: 4px;
+      }
+      .feature-item p {
+        font-size: 14px;
+        line-height: 1.6;
+        color: var(--color-text-secondary);
+      }
+
+      .tech-stack-list {
+        list-style-position: outside;
+        padding-left: 24px;
+      }
+      .tech-stack-list li {
+        margin-bottom: 16px;
+      }
+      .tech-stack-list strong {
+        display: block;
+        margin-bottom: 4px;
+        font-weight: 500;
+      }
+      .tech-stack-list p {
+        font-size: 14px;
+        line-height: 1.6;
+        color: var(--color-text-secondary);
+        padding-left: 0;
+      }
+
+      .support-links {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: var(--padding-m);
+        margin-top: 16px;
+      }
+      .support-button {
+        text-decoration: none;
+        padding: 14px;
+        border-radius: var(--radius-m);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        font-weight: 500;
+        transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+      }
+      .support-button:active {
+        transform: scale(0.96);
+      }
+      .support-button.github {
+        background-color: var(--color-github-bg);
+        color: white;
+      }
+      .support-button.coffee {
+        background-color: var(--color-coffee-bg);
+        color: var(--color-coffee-text);
+      }
+      .support-button svg {
+        width: 1.2em;
+        height: 1.2em;
+      }
+      /* 粘贴这段全新的CSS代码【开始】 */
+
+      /* [最终修复-1] 为关于页面移除内边距，允许其内容全宽显示 */
+      #page-about {
+        padding: 0;
+      }
+
+      /* [最终修复-2] 将页面内头部改为 fixed 定位，以使其固定在屏幕上 */
+      #page-about .page-header {
+        position: fixed;
+        top: calc(var(--header-height) + env(safe-area-inset-top, 0px));
+        left: 0;
+        right: 0;
+        z-index: 1; /* z-index较低，确保不会覆盖主应用的顶栏和弹窗 */
+      }
+
+      /* [最终修复-3] 确保内容区域从头部下方开始，避免被遮挡 */
+      #page-about .about-page-container {
+        /* 这个容器现在是滚动的主体 */
+        position: relative;
+        padding-top: 160px; /* 留出顶部头部的空间 */
+      }
+
+      #page-about .content-card {
+        /* [修改] 增强玻璃拟态（微透）效果 */
+        --color-surface-card: rgba(
+          255,
+          255,
+          255,
+          0.3
+        ); /* 降低背景不透明度，让背景更明显 */
+
+        /* [新增] 明确应用背景色，确保透明度生效 */
+        background-color: var(--color-surface-card);
+
+        /* [新增] 增加一个半透明的边框来强化轮廓 */
+        border: 1px solid rgba(255, 255, 255, 0.2);
+
+        --color-accent-light: #e6f0ff;
+        --color-github-bg: #24292e;
+        --color-coffee-bg: #ffdd00;
+        --color-coffee-text: #3d2b1f;
+      }
+
+      /* --- 权限弹窗样式 --- */
+      .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(255, 255, 255, 0.1);
+        -webkit-backdrop-filter: blur(8px);
+        backdrop-filter: blur(8px);
+        z-index: 240;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity var(--anim-duration) ease;
+      }
+      .modal-overlay.show {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      .modal-container {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%) scale(0.9);
+        background-color: var(--color-surface-container-highest);
+        border-radius: var(--radius-l);
+        padding: var(--padding-l);
+        z-index: 250;
+        width: calc(100% - 48px);
+        max-width: 400px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+        opacity: 0;
+        pointer-events: none;
+        transition: all var(--anim-duration) var(--anim-curve);
+        max-height: 85vh;
+        display: flex;
+        flex-direction: column;
+      }
+      .modal-container.show {
+        opacity: 1;
+        pointer-events: auto;
+        transform: translate(-50%, -50%) scale(1);
+      }
+
+      .modal-header {
+        position: relative;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: var(--gap-s);
+      }
+      .modal-header h2 {
+        margin: 0;
+        font-size: 22px;
+      }
+
+      /* [新增] 关闭按钮样式 */
+      .modal-close-btn {
+        position: absolute;
+        top: -12px;
+        right: -12px;
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: var(--color-on-surface-variant);
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background-color 0.2s;
+      }
+      .modal-close-btn:hover {
+        background-color: rgba(0, 0, 0, 0.05);
+      }
+
+      .modal-body {
+        overflow-y: auto;
+        flex-grow: 1;
+        padding-right: 8px;
+        margin-right: -8px;
+      }
+      .modal-body::-webkit-scrollbar {
+        width: 6px;
+      }
+      .modal-body::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .modal-body::-webkit-scrollbar-thumb {
+        background-color: var(--color-outline);
+        border-radius: 3px;
+      }
+
+      .permission-list {
+        list-style: none;
+        padding: 0;
+        margin: 0 0 24px 0;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .permission-item {
+        display: flex;
+        align-items: center;
+        gap: var(--gap-m);
+      }
+      .permission-icon {
+        flex-shrink: 0;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background-color: var(--color-accent-container, #e6f2ff);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--color-accent);
+      }
+      .permission-icon .material-symbols-outlined {
+        font-size: 22px;
+      }
+      .permission-text {
+        flex-grow: 1;
+      }
+      .permission-text h3 {
+        font-size: 16px;
+        font-weight: 500;
+        margin: 0 0 4px 0;
+        color: var(--color-on-surface);
+      }
+      .permission-text p {
+        font-size: 13px;
+        line-height: 1.5;
+        color: var(--color-on-surface-variant);
+        margin: 0;
+      }
+
+      .permission-text .sub-description {
+        font-size: 11px;
+        color: var(--color-on-surface-variant);
+        opacity: 0.8;
+        margin-top: 4px;
+      }
+
+      .modal-footer {
+        display: flex;
+        flex-direction: column;
+        gap: var(--gap-s);
+        padding-top: var(--gap-m);
+      }
+
+      /* [核心修复] 使用自定义按钮样式，确保兼容性 */
+      .custom-filled-button {
+        width: 100%;
+        height: 52px;
+        background-color: var(--color-accent);
+        color: var(--color-on-accent);
+        border: none;
+        border-radius: 100px; /* Fully rounded */
+        font-size: 14px;
+        font-weight: 500;
+        font-family: "Roboto", sans-serif;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: filter 0.2s;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .custom-filled-button:hover {
+        filter: brightness(1.1);
+      }
+      .custom-filled-button:active {
+        filter: brightness(0.9);
+      }
+
+      .permission-item md-text-button {
+        --md-text-button-label-text-color: var(--color-accent);
+        flex-shrink: 0;
+        margin-left: auto;
+      }
+
+      .permission-status.granted {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        color: var(--color-success);
+        font-size: 14px;
+        font-weight: 500;
+        flex-shrink: 0;
+        margin-left: auto;
+      }
+      .permission-status.granted .material-symbols-outlined {
+        font-size: 20px;
+      }
+
+      .permission-group-header {
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--color-on-surface-variant);
+        text-transform: uppercase;
+        padding-bottom: 4px;
+        border-bottom: 1px solid var(--color-outline);
+        margin-top: 6px;
+        margin-bottom: 8px; /* [修复] 将 0 改为 8px，恢复标题下方的留白 */
+      }
+      .permission-list .permission-group-header:first-child {
+        margin-top: 0;
+      }
+      .header-action-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: var(--color-on-surface-variant);
+        padding: 8px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      /* --- 权限高亮动画样式 (优化版) --- */
+      @keyframes highlightPermissionPulse {
+        0% {
+          background-color: var(--color-primary-container-strong);
+        } /* 初始亮色 */
+        20% {
+          background-color: var(--color-primary-container-light);
+        } /* 变淡 */
+        40% {
+          background-color: var(--color-primary-container-strong);
+        } /* 再次亮色 */
+        60% {
+          background-color: var(--color-primary-container-light);
+        } /* 再次变淡 */
+        80% {
+          background-color: var(--color-primary-container-strong);
+        } /* 再次亮色 */
+        100% {
+          background-color: transparent;
+        } /* 最终透明 */
+      }
+
+      /* 应用高亮动画的类 */
+      .permission-item.highlight {
+        animation: highlightPermissionPulse 3s ease-out forwards; /* 动画持续3秒，结束后保持最终状态 */
+        border-radius: var(--radius-m); /* 添加圆角让高亮更美观 */
+        padding: var(--gap-s); /* 增加一点内边距 */
+        margin: calc(var(--gap-m) - var(--gap-s)) 0; /* 调整外边距，保持整体间距 */
+        box-sizing: border-box; /* 确保 padding 不会撑大容器 */
+        overflow: hidden; /* 防止内容超出圆角 */
+      }
+
+      /* 调整一下权限列表的间距，以适应高亮项增加的内边距 */
+      .permission-list {
+        gap: 0; /* 将列表项之间的固定间距取消 */
+      }
+
+      /* 重新定义列表项的间距，以防止高亮和非高亮项之间间距不一致 */
+      .permission-item {
+        margin-bottom: var(--gap-m); /* 给每个项目下方留出间距 */
+      }
+      .permission-item:last-child {
+        margin-bottom: 0; /* 最后一个项目下方不需要间距 */
+      }
+
+      /* 【新增】定义更深和更亮的淡蓝色变量，用于动画 */
+      :root {
+        /* ... 保持您原有的变量不变 ... */
+        --color-primary-container: #e6f2ff; /* 这是默认的淡蓝色 */
+        --color-primary-container-strong: #a8c5ff; /* 更深的淡蓝色，作为闪烁起点 */
+        --color-primary-container-light: #e6f2ff; /* 更亮的淡蓝色，作为闪烁中间状态 */
+      }
+
+      /* --- 自定义开关组件样式 (最终修复版 v4 - 隔离命名空间) --- */
+      .custom-switch {
+        font-size: 15px;
+        position: relative;
+        display: inline-block;
+        width: 3.5em;
+        height: 2em;
+        vertical-align: middle;
+        flex-shrink: 0;
+      }
+
+      .custom-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+
+      /* 使用 .custom-switch .slider 来确保高优先级，避免冲突 */
+      .custom-switch .slider {
+        position: absolute;
+        cursor: pointer;
+        inset: 0;
+        background-color: var(--color-outline);
+        border: 1px solid var(--color-outline);
+        border-radius: 50px;
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      }
+
+      .custom-switch .slider:before {
+        position: absolute;
+        content: "";
+        height: 1.4em;
+        width: 1.4em;
+        left: 0.2em;
+        top: 50%;
+        transform: translateY(-50%);
+        background-color: white;
+        border-radius: 50%;
+        transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+      }
+
+      .custom-switch input:checked + .slider {
+        background-color: var(--color-accent);
+        border: 1px solid var(--color-accent);
+        box-shadow: 0 0 15px rgba(0, 123, 255, 0.6);
+      }
+
+      .custom-switch input:checked + .slider:before {
+        transform: translateX(1.6em) translateY(-50%);
+      }
+
+      /* 强制让自动循环开关在标题栏右侧对齐 (使用新类名) */
+      .auto-cycle-header > .custom-switch {
+        margin-left: auto;
+      }
+      /* --- 自定义开关组件样式 结束 --- */
+      /* 修复3: 强制让自动循环开关在标题栏右侧对齐 */
+      .auto-cycle-header > .switch {
+        margin-left: auto;
+      }
+      /* 可移植滑块组件 */
+      .slider-wrapper {
+        position: relative;
+        width: 100%;
+        /* 移除 padding-top, 改为用 margin-bottom 控制与下方元素的间距 */
+        margin-bottom: 8px;
+
+        /* [新增] 使用相对定位来进行微调 */
+        position: relative;
+        /* top: 正值向下移动，负值向上移动 */
+        top: 7px;
+        /* left: 正值向右移动，负值向左移动 */
+        left: 3px;
+      }
+
+      .native-slider {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 100%;
+        height: 20px;
+        background: transparent;
+        cursor: pointer;
+        margin: 0;
+        padding: 0;
+      }
+
+      .native-slider::-webkit-slider-runnable-track {
+        width: 100%;
+        height: 4px;
+        border-radius: 4px;
+        background: linear-gradient(
+          to right,
+          var(--color-accent) var(--progress-percent, 0%),
+          var(--color-outline) var(--progress-percent, 0%)
+        );
+      }
+
+      .native-slider::-moz-range-track {
+        width: 100%;
+        height: 4px;
+        border-radius: 4px;
+        background: var(--color-outline);
+      }
+      .native-slider::-moz-range-progress {
+        background-color: var(--color-accent);
+        height: 4px;
+        border-radius: 4px;
+      }
+
+      .native-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        margin-top: -8px;
+        width: 20px;
+        height: 20px;
+        background: var(--color-accent);
+        border-radius: 50%;
+        border: 2px solid white;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        transition: transform 0.2s ease;
+      }
+
+      .native-slider::-moz-range-thumb {
+        width: 20px;
+        height: 20px;
+        background: var(--color-accent);
+        border-radius: 50%;
+        border: 2px solid white;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        transition: transform 0.2s ease;
+      }
+
+      /* --- 滑块数值提示弹窗 (最终优化版) --- */
+      .slider-value-tooltip {
+        position: absolute;
+        /* 调整top值，适应更大的字体 */
+        top: -48px;
+        left: 50%;
+        transform: translateX(-50%) scale(0.8);
+        background-color: var(--color-accent);
+        color: #ffffff !important;
+        font-weight: 700;
+        /* [修复] 将数字再变大 */
+        font-size: 20px;
+        /* [修复] 减少水平内边距，让蓝块变窄 */
+        padding: 8px 12px;
+        border-radius: 12px;
+        /* [修复] 使用Flexbox实现数字的完美居中 */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.2s ease, transform 0.2s ease;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        /* 确保宽度由内容和内边距决定 */
+        width: auto;
+        white-space: nowrap;
+      }
+
+      .slider-value-tooltip.show {
+        opacity: 1;
+        transform: translateX(-50%) scale(1);
+      }
+
+      /* === 可移植滑块组件 CSS 结束 === */
+
+      /* ================================================= */
+      /* === 自定义按钮组件样式 (替换MD3) 开始 === */
+      /* ================================================= */
+
+      /* 1. 基础实心按钮样式 (用于“设置任务”、“保存”等) */
+      .custom-filled-button {
+        width: 100%;
+        height: 52px;
+        background-color: var(--color-accent);
+        color: var(--color-on-accent);
+        border: none;
+        border-radius: 100px; /* 完全圆角的胶囊形状 */
+        font-size: 14px;
+        font-weight: 500;
+        font-family: "Roboto", sans-serif;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: var(--gap-s);
+        transition: filter 0.2s;
+        -webkit-tap-highlight-color: transparent; /* 移除移动端点击高亮 */
+        padding: 0 24px;
+        box-sizing: border-box;
+      }
+      .custom-filled-button:hover {
+        filter: brightness(1.1);
+      }
+      .custom-filled-button:active {
+        filter: brightness(0.9);
+      }
+      .custom-filled-button[data-action="delete"] {
+        background-color: var(--color-error);
+      }
+
+      /* 2. 次级色调按钮样式 (用于“添加继电器”) */
+      .custom-filled-tonal-button {
+        width: 100%;
+        height: 56px;
+        background-color: var(--color-accent-container);
+        color: var(--color-accent);
+        border: none;
+        border-radius: var(--radius-l);
+        font-size: 14px;
+        font-weight: 500;
+        font-family: "Roboto", sans-serif;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: var(--gap-s);
+        transition: filter 0.2s;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .custom-filled-tonal-button:hover {
+        filter: brightness(0.95);
+      }
+      .custom-filled-tonal-button:active {
+        filter: brightness(0.9);
+      }
+
+      /* 3. FAB 浮动操作按钮样式 (用于蓝牙配对) */
+      .custom-fab {
+        width: 56px;
+        height: 56px;
+        border-radius: var(--radius-m); /* 方形带圆角 */
+        background-color: var(--color-accent);
+        color: var(--color-on-accent);
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        /* 继承您原有的 #bluetoothFab 样式中的阴影效果 */
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        transition: transform 0.2s, box-shadow 0.2s;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .custom-fab:active {
+        transform: scale(0.95);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+      }
+
+      /* =============================================== */
+      /* === 自定义按钮组件样式 结束 === */
+      /* =============================================== */
+
+      /* ================================================= */
+      /* === 自定义文本输入框样式 (替换 md-outlined-text-field) === */
+      /* ================================================= */
+
+      /* 1. 外层容器：用于定位和边距 */
+      .custom-text-field-outlined {
+        position: relative;
+        margin-bottom: var(--gap-m); /* 与其他元素的间距 */
+      }
+
+      /* 2. 核心输入框 <input> 的样式 */
+      .custom-text-field-outlined input {
+        width: 100%;
+        height: 56px; /* MD3 标准高度 */
+        padding: 16px;
+        font-size: 16px;
+        font-family: "Roboto", sans-serif;
+        color: var(--color-on-surface);
+        background-color: transparent;
+        border: 1px solid var(--color-outline);
+        border-radius: 8px; /* 轻微的圆角 */
+        outline: none; /* 移除默认的蓝色外发光 */
+        transition: border-color 0.2s ease;
+      }
+
+      /* 3. 浮动标签 <label> 的样式 */
+      .custom-text-field-outlined label {
+        position: absolute;
+        top: 50%;
+        left: 16px;
+        transform: translateY(-50%);
+        color: var(--color-on-surface-variant);
+        background-color: var(
+          --color-surface-container-highest
+        ); /* 关键：用背景色“切开”边框 */
+        padding: 0 4px;
+        font-size: 16px;
+        pointer-events: none; /* 让点击可以穿透标签，聚焦到输入框 */
+        transition: all 0.2s ease-out;
+      }
+
+      /* 4. “浮动”效果的核心逻辑 */
+      /* 当输入框被聚焦(focus)或内部有内容时(:not(:placeholder-shown))，应用这些样式到它后面的兄弟标签 <label> */
+      .custom-text-field-outlined input:focus + label,
+      .custom-text-field-outlined input:not(:placeholder-shown) + label {
+        top: 0; /* 移动到顶部 */
+        font-size: 12px; /* 缩小字体 */
+        color: var(--color-accent); /* 变为高亮色 */
+      }
+
+      /* 5. 聚焦时，输入框边框的样式 */
+      .custom-text-field-outlined input:focus {
+        border-color: var(--color-accent);
+        border-width: 2px; /* 边框加粗，这是MD3的经典效果 */
+      }
+      /* ================================================= */
+      /* === [修复] Material Symbols 图标核心样式 === */
+      /* ================================================= */
+      .material-symbols-outlined {
+        font-family: "Material Symbols Outlined";
+        font-weight: normal;
+        font-style: normal;
+        font-size: 24px;
+        line-height: 1;
+        letter-spacing: normal;
+        text-transform: none;
+        display: inline-block;
+        white-space: nowrap;
+        word-wrap: normal;
+        direction: ltr;
+        -webkit-font-feature-settings: "liga";
+        -webkit-font-smoothing: antialiased;
+      }
+      /* ================================================= */
+      /* === 自定义文本按钮样式 (替换 md-text-button) === */
+      /* ================================================= */
+      .custom-text-button {
+        background-color: transparent;
+        color: var(--color-accent);
+        border: none;
+        padding: 10px 12px;
+        font-size: 14px;
+        font-weight: 500;
+        font-family: "Roboto", sans-serif;
+        border-radius: 100px; /* 胶囊形状，与实心按钮统一 */
+        cursor: pointer;
+        transition: background-color 0.2s;
+        -webkit-tap-highlight-color: transparent;
+        /* [新增] 确保文字垂直居中 */
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .custom-text-button:hover {
+        /* 鼠标悬停时显示一个淡淡的背景 */
+        background-color: rgba(0, 123, 255, 0.08);
+      }
+      .custom-text-button:active {
+        background-color: rgba(0, 123, 255, 0.12);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app-container">
+      <header class="app-header">
+        <div class="header-title-group">
+          <span class="title" id="appTitle">SPP蓝牙自动化控制</span>
+          <div class="status-area">
+            <div id="globalBtStateDot" class="status-dot disconnected"></div>
+            <span id="globalBtStateText">未连接</span>
+          </div>
+        </div>
+        <div id="headerActions"></div>
+      </header>
+
+      <main class="page-content">
+        <div id="page-relay-control" class="page active">
+          <div id="relayListContainer">
+            <div id="relayList"></div>
+            <div id="addRelayWrapper">
+              <button id="addRelayButton" class="custom-filled-tonal-button">
+                <span class="material-symbols-outlined">add</span>添加继电器
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="page-command-debug" class="page">
+          <div class="message-list" id="debugMessageList"></div>
+          <footer class="input-footer">
+            <div class="input-row">
+              <button class="icon-btn" id="statsButton" aria-label="打开仪表盘">
+                <span class="material-symbols-outlined">query_stats</span>
+              </button>
+              <div class="input-wrapper">
+                <input
+                  type="text"
+                  id="commandInput"
+                  placeholder="输入hex或文本指令..."
+                />
+              </div>
+              <button
+                class="icon-btn send-btn"
+                id="sendButton"
+                aria-label="发送"
+              >
+                <span class="material-symbols-outlined">send</span>
+              </button>
+            </div>
+          </footer>
+        </div>
+
+        <div id="page-log" class="page">
+          <div id="logContainer">
+            <div id="logPlaceholder" class="log-placeholder">
+              <span class="material-symbols-outlined">history</span>
+              <p>暂无日志记录</p>
+            </div>
+            <table class="log-table" style="display: none">
+              <thead>
+                <tr>
+                  <th>时间/类型</th>
+                  <th>内容</th>
+                  <th>描述</th>
+                </tr>
+              </thead>
+              <tbody id="logList"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="page-about" class="page">
+          <div class="about-page-container">
+            <header class="page-header">
+              <div class="interactive-header-card">
+                <div id="card">
+                  <div id="prompt">
+                    <h1 class="main-title">SPP蓝牙自动化控制</h1>
+                    <p class="version-info">版本: 2.2.0</p>
+                  </div>
+                </div>
+              </div>
+            </header>
+
+            <main class="content-card-wrapper">
+              <section class="content-card">
+                <div class="card-header">
+                  <span class="material-symbols-outlined">info</span>
+                  <h2>关于项目</h2>
+                </div>
+                <p
+                  style="
+                    font-size: 14px;
+                    line-height: 1.6;
+                    color: var(--color-on-surface-variant);
+                    margin-bottom: 16px;
+                  "
+                >
+                  这是一款为用户，电子爱好者和开发者设计的SPP经典蓝牙多功能图形化智能APP。不仅提供了直观的继电器控制界面，还集成了强大的底层指令调试工具，并通过后台服务确保蓝牙连接的稳定和定时任务的精准执行。
+                </p>
+                <div class="author-card">
+                  <div class="author-info">
+                    <div class="name">拿铁咖啡不加奶</div>
+                    <div class="bio">16岁开发者 / 第一个安卓项目</div>
+                  </div>
+                  <div class="ai-collab">
+                    <svg
+                      height="1.2em"
+                      style="flex: none; line-height: 1"
+                      viewBox="0 0 24 24"
+                      width="1.2em"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z"
+                        fill="#3186FF"
+                      ></path>
+                    </svg>
+                    <span>与 Gemini 协作</span>
+                  </div>
+                </div>
+                <div class="contact-info">
+                  <strong>问题反馈:</strong><br />
+                  QQ 984388724<br />
+                  shj561661@outlook.com
+                </div>
+              </section>
+
+              <section class="content-card">
+                <div class="card-header">
+                  <span class="material-symbols-outlined">category</span>
+                  <h2>核心功能</h2>
+                </div>
+                <ul class="feature-list">
+                  <li class="feature-item">
+                    <span class="material-symbols-outlined">dynamic_feed</span>
+                    <div>
+                      <h4>多路动态控制</h4>
+                      <p>
+                        动态添加、编辑和删除控制卡片，独立配置指令，所有配置自动本地保存，提供极高的灵活性。
+                      </p>
+                    </div>
+                  </li>
+                  <li class="feature-item">
+                    <span class="material-symbols-outlined">alarm</span>
+                    <div>
+                      <h4>精准后台定时</h4>
+                      <p>
+                        利用系统AlarmManager，即使App息屏或设备休眠，任务依然会被唤醒并精准触发，确保自动化万无一失。
+                      </p>
+                    </div>
+                  </li>
+                  <li class="feature-item">
+                    <span class="material-symbols-outlined">terminal</span>
+                    <div>
+                      <h4>底层指令调试</h4>
+                      <p>
+                        为开发者设计，支持HEX/文本格式收发原始数据流，是进行蓝牙协议开发与验证的强大工具。
+                      </p>
+                    </div>
+                  </li>
+                </ul>
+              </section>
+
+              <section class="content-card">
+                <div class="card-header">
+                  <span class="material-symbols-outlined">architecture</span>
+                  <h2>应用架构</h2>
+                </div>
+                <ul class="tech-stack-list">
+                  <li>
+                    <strong>前端界面 (UI Layer):</strong>
+                    <p>
+                      由HTML, CSS,
+                      JS构建，运行于原生WebView中，实现快速迭代和现代化的设计效果。
+                    </p>
+                  </li>
+                  <li>
+                    <strong>原生后端 (Logic Layer - Kotlin):</strong>
+                    <p>
+                      由Kotlin驱动，通过前台服务(Foreground
+                      Service)确保后台蓝牙连接稳定，并通过广播接收器(BroadcastReceiver)实现精准定时任务。
+                    </p>
+                  </li>
+                  <li>
+                    <strong>通信桥梁 (Bridge):</strong>
+                    <p>
+                      通过JavascriptInterface (JS->Native) 和 evaluateJavascript
+                      (Native->JS) 实现前端与原生后端的高效双向通信。
+                    </p>
+                  </li>
+                </ul>
+              </section>
+
+              <section class="content-card">
+                <div class="card-header">
+                  <span class="material-symbols-outlined">favorite</span>
+                  <h2>支持与开源</h2>
+                </div>
+                <p
+                  style="
+                    font-size: 14px;
+                    line-height: 1.6;
+                    color: var(--color-text-secondary);
+                  "
+                >
+                  如果这个项目对您有帮助，欢迎通过以下方式支持我。您的鼓励是我持续更新和创作的动力！2025/8/26
+                </p>
+                <div class="support-links">
+                  <a
+                    href="https://github.com/shj56166/kongzhi2"
+                    target="_blank"
+                    class="support-button github"
+                  >
+                    <svg viewBox="0 0 16 16" fill="currentColor">
+                      <path
+                        d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"
+                      ></path>
+                    </svg>
+                    <span>GitHub</span>
+                  </a>
+                  <a href="#paymentModal" class="support-button coffee">
+                    <span class="material-symbols-outlined">coffee</span>
+                    <span>请我喝杯咖啡</span>
+                  </a>
+                </div>
+              </section>
+            </main>
+          </div>
+
+          <div id="paymentModal" class="payment-modal-overlay">
+            <div class="payment-modal-content">
+              <a
+                href="#"
+                style="
+                  position: absolute;
+                  top: 16px;
+                  right: 20px;
+                  font-size: 28px;
+                  text-decoration: none;
+                  color: var(--color-on-surface-variant);
+                "
+                >&times;</a
+              >
+              <div class="payment-toggle-glass">
+                <input
+                  type="radio"
+                  name="payment-method"
+                  id="wx-radio"
+                  checked
+                />
+                <label for="wx-radio">微信支付</label>
+
+                <input type="radio" name="payment-method" id="zfb-radio" />
+                <label for="zfb-radio">支付宝</label>
+
+                <div class="payment-glider-glass"></div>
+              </div>
+              <div class="qr-image-container">
+                <img
+                  id="wx-qr"
+                  class="qr-image"
+                  src="./images/wx.png"
+                  alt="微信支付二维码"
+                />
+                <img
+                  id="zfb-qr"
+                  class="qr-image"
+                  src="./images/zfb.jpg"
+                  alt="支付宝二维码"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+      <nav class="app-nav">
+        <div
+          class="nav-item active"
+          data-page="page-relay-control"
+          data-title="SPP蓝牙自动化控制"
+        >
+          <span class="material-symbols-outlined">toggle_on</span>
+          <span class="nav-label">控制</span>
+        </div>
+        <div
+          class="nav-item"
+          data-page="page-command-debug"
+          data-title="指令调试"
+        >
+          <span class="material-symbols-outlined">terminal</span>
+          <span class="nav-label">调试</span>
+        </div>
+        <div class="nav-item" data-page="page-log" data-title="操作日志">
+          <span class="material-symbols-outlined">history</span>
+          <span class="nav-label">日志</span>
+        </div>
+        <div class="nav-item" data-page="page-about" data-title="关于">
+          <span class="material-symbols-outlined">help_outline</span>
+          <span class="nav-label">关于</span>
+        </div>
+      </nav>
+    </div>
+
+    <button id="bluetoothFab" class="custom-fab" aria-label="蓝牙连接">
+      <span class="material-symbols-outlined">bluetooth_searching</span>
+    </button>
+    <div id="scanDialog">
+      <div class="scan-dialog-content">
+        <div class="scan-dialog-header">
+          <h2>设备连接</h2>
+          <button class="close-btn" id="closeScanDialogBtn" aria-label="关闭">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>
+
+        <div class="scan-animation-bar"></div>
+
+        <ul id="deviceScanList"></ul>
+
+        <div class="scan-dialog-settings">
+          <div class="setting-text">
+            <div class="setting-title">自动连接上一设备</div>
+            <div class="setting-description">
+              开启后，应用启动时会自动尝试连接上次成功连接的设备。
+            </div>
+          </div>
+          <label class="custom-switch" for="autoConnectToggle">
+            <input type="checkbox" id="autoConnectToggle" />
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="scan-dialog-actions">
+          <button
+            id="disconnectDialogBtn"
+            class="custom-text-button"
+            style="visibility: hidden"
+          >
+            断开连接
+          </button>
+          <button id="rescanBtn" class="custom-text-button">重新扫描</button>
+        </div>
+      </div>
+    </div>
+    <div id="toast"></div>
+    <div id="editModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>编辑继电器</h2>
+          <button
+            class="delete-icon-btn"
+            id="deleteRelayIcon"
+            aria-label="删除继电器"
+          >
+            <span class="material-symbols-outlined">delete</span>
+          </button>
+        </div>
+        <input type="hidden" id="editRelayIndex" />
+        <div class="custom-text-field-outlined">
+          <input type="text" id="editRelayName" placeholder=" " required />
+          <label for="editRelayName">继电器名称</label>
+        </div>
+        <div class="custom-text-field-outlined">
+          <input type="text" id="editOnCommand" placeholder=" " required />
+          <label for="editOnCommand">开启指令 (hex)</label>
+        </div>
+        <div class="custom-text-field-outlined">
+          <input type="text" id="editOffCommand" placeholder=" " required />
+          <label for="editOffCommand">关闭指令 (hex)</label>
+        </div>
+        <div class="modal-actions" id="normalActions">
+          <button id="cancelEdit" class="custom-text-button">取消</button>
+          <button id="saveEdit" class="custom-filled-button">保存</button>
+        </div>
+        <div
+          class="modal-actions"
+          id="deleteConfirmActions"
+          style="display: none"
+        >
+          <button id="cancelDelete" class="custom-text-button">取消</button>
+          <button
+            id="deleteConfirmButton"
+            class="custom-filled-button"
+            data-action="delete"
+          >
+            确认删除
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="panel-overlay" id="panelOverlay"></div>
+    <div id="statsPanel">
+      <h3>调试仪表盘</h3>
+      <div class="stats-grid">
+        <div class="stat-item">
+          <div class="value sent-success" id="sentSuccessCount">0</div>
+          <div class="label">发送成功</div>
+        </div>
+        <div class="stat-item">
+          <div class="value sent-fail" id="sentFailCount">0</div>
+          <div class="label">发送失败</div>
+        </div>
+        <div class="stat-item">
+          <div class="value received" id="receivedCount">0</div>
+          <div class="label">已接收</div>
+        </div>
+      </div>
+      <div class="panel-row">
+        <div class="label">自动滚动</div>
+        <label class="switch"
+          ><input type="checkbox" id="autoScrollToggle" checked /><span
+            class="slider round"
+          ></span
+        ></label>
+      </div>
+      <hr
+        style="
+          border: none;
+          border-top: 1px solid var(--color-outline);
+          margin: var(--gap-m) 0;
+        "
+      />
+      <div class="format-toggle-group">
+        <div class="toggle-container">
+          <div class="toggle-label">发送格式</div>
+          <div class="format-toggle" id="sendFormatToggle">
+            <input
+              type="radio"
+              name="sendFormat"
+              value="hex"
+              id="sendHex"
+              checked
+            /><label for="sendHex">hex</label>
+            <input
+              type="radio"
+              name="sendFormat"
+              value="text"
+              id="sendText"
+            /><label for="sendText">文本</label>
+            <div class="toggle-slider"></div>
+          </div>
+        </div>
+        <div class="toggle-container">
+          <div class="toggle-label">接收格式</div>
+          <div class="format-toggle" id="receiveFormatToggle">
+            <input
+              type="radio"
+              name="receiveFormat"
+              value="hex"
+              id="receiveHex"
+              checked
+            /><label for="receiveHex">hex</label>
+            <input
+              type="radio"
+              name="receiveFormat"
+              value="text"
+              id="receiveText"
+            /><label for="receiveText">文本</label>
+            <div class="toggle-slider"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="panel-overlay" id="confirmOverlay"></div>
+    <div id="confirmDialog">
+      <p id="confirmDialogMessage"></p>
+      <div class="dialog-actions">
+        <button id="confirmCancel">取消</button>
+        <button id="confirmAction">确认</button>
+      </div>
+    </div>
+
+    <!-- --- 权限申请弹窗 --- -->
+    <div id="permissionModalOverlay" class="modal-overlay"></div>
+    <div id="permissionModal" class="modal-container">
+      <div class="modal-header">
+        <h2 id="permissionModalTitle">应用权限状态</h2>
+        <!-- [新增] 关闭按钮 -->
+        <button
+          id="closePermissionModalBtn"
+          class="modal-close-btn"
+          aria-label="关闭"
+        >
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p
+          id="permissionModalDescription"
+          style="
+            font-size: 14px;
+            color: var(--color-on-surface-variant);
+            margin-bottom: var(--gap-m);
+          "
+        >
+          管理应用所需权限，以确保所有功能正常运行。
+        </p>
+        <ul class="permission-list" id="permissionListContainer">
+          <!-- 权限项将由JS动态生成 -->
+        </ul>
+      </div>
+      <div class="modal-footer">
+        <!-- [核心修复] 将 md-filled-button 替换为自定义的 button -->
+        <button id="grantMissingPermissionsBtn" class="custom-filled-button">
+          一键授权所有“必要”权限
+        </button>
+      </div>
+    </div>
+
+    <script>
+      // ==========================================================
+      // === 新增：卡片滑块初始化函数 (v2 - 修复版) ===
+      // ==========================================================
+      const initializeCardSlider = (cardElement, index) => {
+        // 在卡片内部查找对应的元素
+        const sliderEl = cardElement.querySelector(`#cycleSlider-${index}`);
+        const tooltipEl = cardElement.querySelector(`#tooltipValue-${index}`);
+        const labelEl = cardElement.querySelector(".cycle-label");
+
+        if (!sliderEl || !tooltipEl || !labelEl) {
+          console.error(`在卡片 ${index} 中未找到滑块所需元素。`);
+          return; // 如果找不到元素，则直接退出，防止报错
+        }
+
+        const updateSliderVisuals = (currentValue) => {
+          const valueText = `${currentValue} 次/秒`;
+          tooltipEl.textContent = currentValue;
+          labelEl.textContent = valueText;
+
+          const min = parseFloat(sliderEl.min);
+          const max = parseFloat(sliderEl.max);
+          const percent =
+            max - min > 0 ? ((currentValue - min) / (max - min)) * 100 : 0;
+
+          sliderEl.style.setProperty("--progress-percent", `${percent}%`);
+
+          const sliderWidth = sliderEl.offsetWidth;
+          const thumbWidth = 20;
+          const thumbPosition = (sliderWidth - thumbWidth) * (percent / 100);
+          tooltipEl.style.left = `calc(${thumbPosition}px + ${
+            thumbWidth / 2
+          }px)`;
+        };
+
+        // --- 事件绑定 ---
+        const showTooltip = () => tooltipEl.classList.add("show");
+        const hideTooltip = () => tooltipEl.classList.remove("show");
+
+        // 移除旧的监听器，防止重复绑定
+        sliderEl.removeEventListener("input", updateSliderVisuals); // 简化，直接引用函数
+        sliderEl.removeEventListener("mousedown", showTooltip);
+        sliderEl.removeEventListener("touchstart", showTooltip);
+
+        // 重新绑定
+        sliderEl.addEventListener("input", (event) =>
+          updateSliderVisuals(event.target.value)
+        );
+        sliderEl.addEventListener("mousedown", showTooltip);
+        sliderEl.addEventListener("touchstart", showTooltip, { passive: true });
+
+        // 初始化
+        updateSliderVisuals(sliderEl.value);
+      };
+
+      // --- 全局的 mouseup/touchend 监听器 (只需设置一次) ---
+      if (!window.hasSliderEndListener) {
+        const hideAllTooltips = () => {
+          document
+            .querySelectorAll(".slider-value-tooltip.show")
+            .forEach((tt) => tt.classList.remove("show"));
+        };
+        window.addEventListener("mouseup", hideAllTooltips);
+        window.addEventListener("touchend", hideAllTooltips);
+        window.hasSliderEndListener = true;
+      }
+
+      document.addEventListener("DOMContentLoaded", () => {
+        // Mock BTBridge for testing in a browser environment
+        if (!window.BTBridge) {
+          console.warn("未找到 BTBridge 接口，已启动模拟测试模式。");
+          window.BTBridge = (() => {
+            let isConnected = false;
+            let mockTimers = {};
+            let mockTimerIntervals = {};
+            const broadcastTimerUpdate = () => {
+              if (window.onTimerUpdate) {
+                const timersJson = JSON.stringify(Object.values(mockTimers));
+                window.onTimerUpdate(btoa(timersJson), true);
+              }
+            };
+            return {
+              connect: () => {
+                console.log("[SIMULATE] connect called.");
+                setTimeout(() => {
+                  isConnected = true;
+                  if (window.onConnectionStateChange)
+                    window.onConnectionStateChange(true, "HCW-Mock");
+                }, 1000);
+              },
+              disconnect: () => {
+                console.log("[SIMULATE] disconnect called.");
+                isConnected = false;
+                if (window.onConnectionStateChange)
+                  window.onConnectionStateChange(false, "未连接");
+              },
+              sendData: (hex) => {
+                console.log(`[SIMULATE] Sending command: ${hex}`);
+                if (window.onData) setTimeout(() => window.onData(hex), 100);
+              },
+              setTimer: (taskId, delayMs, command) => {
+                console.log(
+                  `[SIMULATE] Setting timer: ${taskId}, ${delayMs}ms, ${command}`
+                );
+                mockTimers[taskId] = {
+                  id: taskId,
+                  command,
+                  triggerAt: Date.now() + delayMs,
+                };
+                if (mockTimerIntervals[taskId])
+                  clearTimeout(mockTimerIntervals[taskId]);
+                mockTimerIntervals[taskId] = setTimeout(() => {
+                  console.log(`[SIMULATE] Timer fired: ${taskId}`);
+                  const finishedTask = mockTimers[taskId];
+                  delete mockTimers[taskId];
+                  if (window.onData) window.onData(command);
+                  broadcastTimerUpdate();
+                }, delayMs);
+                broadcastTimerUpdate();
+              },
+              cancelTimer: (taskId) => {
+                console.log(`[SIMULATE] Cancelling timer: ${taskId}`);
+                if (mockTimers[taskId]) delete mockTimers[taskId];
+                if (mockTimerIntervals[taskId]) {
+                  clearTimeout(mockTimerIntervals[taskId]);
+                  delete mockTimerIntervals[taskId];
+                }
+                broadcastTimerUpdate();
+              },
+              startScan: () => {
+                console.log("[SIMULATE] startScan called.");
+                window.onDiscoveryStarted?.();
+                setTimeout(() => window.onDiscoveryFinished?.(), 1800);
+              },
+              stopScan: () => {
+                console.log("[SIMULATE] stopScan called.");
+                window.onDiscoveryFinished?.();
+              },
+              checkPermissions: () =>
+                JSON.stringify({
+                  bluetooth: true,
+                  notifications: true,
+                  alarm: true,
+                  location: true,
+                }),
+              getAutoConnectEnabled: () => false,
+              setAutoConnectEnabled: (enabled) =>
+                console.log(`[SIMULATE] setAutoConnectEnabled: ${enabled}`),
+              onJsReady: () => console.log("[SIMULATE] onJsReady called."),
+              checkExactAlarmPermission: () =>
+                console.log("[SIMULATE] checkExactAlarmPermission called."),
+              requestExactAlarmPermission: () =>
+                showToast("已跳转到模拟的设置页面"),
+            };
+          })();
+        }
+
+        // Global application state
+        const AppState = {
+          currentPage: null,
+          isBtConnected: false,
+          connectedDeviceName: null,
+          connectedDeviceAddress: null,
+          activeTimers: {},
+          countdownIntervals: {},
+        };
+
+        // [新增] 触发原生振动反馈的辅助函数
+        const triggerHapticFeedback = (type = "single") => {
+          // 默认为'single'
+          const isHapticsEnabled =
+            localStorage.getItem("hapticsEnabled") !== "false";
+          if (
+            isHapticsEnabled &&
+            window.BTBridge &&
+            window.BTBridge.performHapticFeedback
+          ) {
+            // 将类型参数传递给原生接口
+            window.BTBridge.performHapticFeedback(type);
+          }
+        };
+        // ==========================================================
+        // === [新增修复] 添加此函数以支持时间选择器的连续“咔哒”振动 ===
+        // ==========================================================
+        const triggerHapticTicks = (tickCount) => {
+          const isHapticsEnabled =
+            localStorage.getItem("hapticsEnabled") !== "false";
+          // 调用您在 MainActivity 中定义的 performHapticTicks 接口
+          if (
+            isHapticsEnabled &&
+            window.BTBridge &&
+            window.BTBridge.performHapticTicks
+          ) {
+            window.BTBridge.performHapticTicks(tickCount);
+          }
+        };
+
+        // DOM element references
+        const navItems = document.querySelectorAll(".nav-item");
+        const pages = document.querySelectorAll(".page");
+        const appTitle = document.getElementById("appTitle");
+        const headerActions = document.getElementById("headerActions");
+        const bluetoothFab = document.getElementById("bluetoothFab");
+        const globalBtStateDot = document.getElementById("globalBtStateDot");
+        const globalBtStateText = document.getElementById("globalBtStateText");
+        const toastElement = document.getElementById("toast");
+        const confirmDialog = document.getElementById("confirmDialog");
+        const confirmOverlay = document.getElementById("confirmOverlay");
+        const confirmMessage = document.getElementById("confirmDialogMessage");
+        const confirmActionBtn = document.getElementById("confirmAction");
+        const confirmCancelBtn = document.getElementById("confirmCancel");
+
+        // --- Core App Logic ---
+
+        const switchPage = (pageId) => {
+          // 如果已经是当前页，则不执行任何操作，也包括震动
+          if (AppState.currentPage === pageId) return;
+
+          // [新增] 判断将要切换的页面是否是“关于”页
+          if (pageId === "page-about") {
+            // 调用我们之前定义的重低音效果
+            // 如果您更喜欢干脆的“闷响”，可以把 'bass_thump' 改为 'thud'
+            window.BTBridge.performHapticFeedback("bass_thump");
+          }
+          if (AppState.currentPage === pageId) return;
+          document.querySelector(".page.active")?.classList.remove("active");
+          document.getElementById(pageId)?.classList.add("active");
+          AppState.currentPage = pageId;
+          const activeNavItem = document.querySelector(
+            `.nav-item[data-page="${pageId}"]`
+          );
+          document
+            .querySelector(".nav-item.active")
+            ?.classList.remove("active");
+          if (activeNavItem) {
+            activeNavItem.classList.add("active");
+            appTitle.textContent = activeNavItem.dataset.title;
+          }
+          updateHeaderAndFab(pageId);
+        };
+
+        // [最终修复] 彻底解决按钮消失问题，并精确控制浮动按钮
+        const updateHeaderAndFab = (pageId) => {
+          // 1. 每次切换页面时，都先清空顶部的操作区
+          headerActions.innerHTML = "";
+
+          // 2. 根据当前页面ID，决定显示哪个按钮
+          if (pageId === "page-command-debug" || pageId === "page-log") {
+            // 当处于“调试”或“日志”页面时，只显示“清空”按钮
+            const clearBtn = document.createElement("button");
+            clearBtn.className = "header-action-btn"; // 使用统一的按钮样式
+            clearBtn.innerHTML =
+              '<span class="material-symbols-outlined">delete_sweep</span>';
+
+            if (pageId === "page-command-debug") {
+              clearBtn.setAttribute("aria-label", "清空调试日志与统计");
+              clearBtn.onclick = () => DebugPage.showClearConfirm();
+            } else {
+              // page-log
+              clearBtn.setAttribute("aria-label", "清空操作日志");
+              clearBtn.onclick = () => LogPage.showClearConfirm();
+            }
+            headerActions.appendChild(clearBtn);
+          } else if (
+            pageId === "page-relay-control" ||
+            pageId === "page-about"
+          ) {
+            // 当处于“控制”或“关于”页面时，只显示“权限/帮助”按钮
+            const permissionButton = document.createElement("button");
+            permissionButton.className = "header-action-btn";
+            permissionButton.setAttribute("aria-label", "应用权限状态");
+            permissionButton.innerHTML =
+              '<span class="material-symbols-outlined">help_outline</span>'; // 确认是问号图标
+            permissionButton.addEventListener("click", showPermissionModal);
+            headerActions.appendChild(permissionButton);
+          }
+
+          // 3. 单独、精确地控制右下角浮动按钮的显隐
+          // 只有在“控制”页面才需要显示浮动按钮
+          const fabVisible = pageId === "page-relay-control";
+          bluetoothFab.classList.toggle("hidden", !fabVisible);
+        };
+
+        navItems.forEach((item) =>
+          item.addEventListener("click", () => switchPage(item.dataset.page))
+        );
+
+        const BTBridge = window.BTBridge;
+
+        window.handleAndroidBackButton = () => {
+          // [新增] 优先级最高：检查权限弹窗
+          const permissionModal = document.getElementById("permissionModal");
+          if (permissionModal.classList.contains("show")) {
+            hidePermissionModal();
+            return true; // 返回 true，告诉安卓已处理返回事件
+          }
+
+          // 优先级1: 检查并关闭各类弹窗和面板
+          const editModal = document.getElementById("editModal");
+          if (editModal.classList.contains("show")) {
+            editModal.classList.remove("show");
+            return true;
+          }
+
+          const scanDialog = document.getElementById("scanDialog");
+          if (scanDialog.classList.contains("show")) {
+            ScanDialog.hide(); // 现在可以正常调用了
+            return true;
+          }
+
+          const statsPanel = document.getElementById("statsPanel");
+          if (statsPanel.classList.contains("show")) {
+            DebugPage.togglePanel(false);
+            return true;
+          }
+
+          if (window.location.hash === "#paymentModal") {
+            window.location.hash = "#";
+            return true;
+          }
+
+          const confirmDialog = document.getElementById("confirmDialog");
+          if (confirmDialog.classList.contains("show")) {
+            hideConfirmDialog();
+            return true;
+          }
+
+          // 优先级2: 如果没有弹窗，则检查是否在其他功能页面
+          if (AppState.currentPage !== "page-relay-control") {
+            switchPage("page-relay-control");
+            return true;
+          }
+
+          // 优先级3: 如果在主控页且无任何弹窗，允许App退出
+          return false;
+        };
+
+        window.onError = (message) => {
+          showToast(`错误: ${message}`);
+          // [修改] 增加更详细的描述
+          LogPage.addLog({
+            type: "error",
+            content: message,
+            description: "原生层或系统错误",
+          });
+        };
+        window.onData = (hexData) => {
+          // [修改] 指定内容格式为'hex'
+          LogPage.addLog({
+            type: "received",
+            content: hexData,
+            description: "从设备接收",
+            format: "hex",
+          });
+          if (AppState.currentPage === "page-relay-control")
+            RelayPage.handleData(hexData);
+          else if (AppState.currentPage === "page-command-debug")
+            DebugPage.handleData(hexData);
+        };
+        window.onTimerUpdate = (base64Json, isBase64) => {
+          try {
+            const jsonString = isBase64 ? atob(base64Json) : base64Json;
+            const newTimers = JSON.parse(jsonString).reduce((acc, timer) => {
+              acc[timer.id] = timer;
+              return acc;
+            }, {});
+            RelayPage.updateAllTimerStatus(AppState.activeTimers, newTimers);
+            AppState.activeTimers = newTimers;
+          } catch (e) {
+            console.error("解析定时器更新失败:", e);
+            // [修改] 增加更详细的描述
+            LogPage.addLog({
+              type: "error",
+              content: e.message,
+              description: "解析后台定时器数据失败",
+            });
+          }
+        };
+        // [修改] 将触发逻辑改为打开新的权限状态页
+        window.onPermissionRequired = (permissionType) => {
+          if (permissionType === "exact-alarm") {
+            // [修改] 缺少闹钟权限时，高亮显示闹钟权限项
+            showPermissionModal("alarm");
+          }
+        };
+
+        const showToast = (message) => {
+          toastElement.textContent = message;
+          toastElement.style.bottom = `${
+            (document.querySelector(".app-nav")?.offsetHeight || 64) + 16
+          }px`;
+          setTimeout(() => {
+            toastElement.style.bottom = "-100px";
+          }, 3000);
+        };
+
+        const permissionsData = [
+          {
+            key: "bluetooth",
+            icon: "bluetooth_searching",
+            title: "附近的设备",
+            description: "用于扫描、发现并连接到您的蓝牙硬件设备。",
+            optional: false,
+          },
+          {
+            key: "notifications",
+            icon: "notifications_active",
+            title: "通知",
+            description:
+              "用于在后台保持服务运行时显示状态，防止连接被意外终止。",
+            optional: false,
+          },
+          {
+            key: "location",
+            icon: "location_on",
+            title: "位置信息",
+            description: "在部分旧版安卓系统上，扫描蓝牙设备可能需要此权限。",
+            optional: true,
+            subDescription:
+              "此权限绝不会收集您的位置信息，只用于兼容旧版系统。",
+          },
+          {
+            key: "alarm",
+            icon: "alarm",
+            title: "闹钟与提醒",
+            description: "用于“定时任务”，确保在精确时间执行您设定的指令。",
+            optional: true,
+          },
+        ];
+
+        const populatePermissionList = (currentStatus) => {
+          permissionListContainer.innerHTML = "";
+
+          const requiredPermissions = permissionsData.filter(
+            (p) => !p.optional
+          );
+          const optionalPermissions = permissionsData.filter((p) => p.optional);
+
+          const createListItem = (p) => {
+            const isGranted = currentStatus[p.key];
+            const item = document.createElement("li");
+            item.className = "permission-item";
+            item.dataset.key = p.key;
+
+            const actionHtml = isGranted
+              ? `<div class="permission-status granted"><span class="material-symbols-outlined">check_circle</span></div>`
+              : `<button class="custom-text-button grant-single-btn" data-key="${p.key}">去授权</button>`;
+
+            const subDescriptionHtml = p.subDescription
+              ? `<p class="sub-description">${p.subDescription}</p>`
+              : "";
+
+            item.innerHTML = `
+                        <div class="permission-icon">
+                            <span class="material-symbols-outlined">${p.icon}</span>
+                        </div>
+                        <div class="permission-text">
+                            <h3>${p.title}</h3>
+                            <p>${p.description}</p>
+                            ${subDescriptionHtml}
+                        </div>
+                        ${actionHtml}
+                    `;
+            return item;
+          };
+
+          if (requiredPermissions.length > 0) {
+            const header = document.createElement("h4");
+            header.className = "permission-group-header";
+            header.textContent = "必要权限";
+            permissionListContainer.appendChild(header);
+            requiredPermissions.forEach((p) =>
+              permissionListContainer.appendChild(createListItem(p))
+            );
+          }
+
+          if (optionalPermissions.length > 0) {
+            const header = document.createElement("h4");
+            header.className = "permission-group-header";
+            header.textContent = "可选权限";
+            permissionListContainer.appendChild(header);
+            optionalPermissions.forEach((p) =>
+              permissionListContainer.appendChild(createListItem(p))
+            );
+          }
+
+          document.querySelectorAll(".grant-single-btn").forEach((button) => {
+            button.addEventListener("click", (e) => {
+              // 接收事件对象 e
+              // 从被点击的按钮上，读取它的 data-key 属性
+              const permissionKey = e.currentTarget.dataset.key;
+
+              if (window.BTBridge && window.BTBridge.requestSinglePermission) {
+                // 调用我们刚刚在 Kotlin 中创建的新接口，并把 key 传过去
+                window.BTBridge.requestSinglePermission(permissionKey);
+              }
+            });
+          });
+
+          const hasMissingRequired = requiredPermissions.some(
+            (p) => !currentStatus[p.key]
+          );
+          grantMissingPermissionsBtn.style.display = hasMissingRequired
+            ? "block"
+            : "none";
+        };
+
+        const hidePermissionModal = () => {
+          permissionModalOverlay.classList.remove("show");
+          permissionModal.classList.remove("show");
+        };
+
+        // [修改] 支持高亮特定权限项的 showPermissionModal 函数
+        const showPermissionModal = async (highlightKey = null) => {
+          // 接收一个可选参数 highlightKey
+          if (!window.BTBridge || !window.BTBridge.checkPermissions) {
+            showToast("权限接口未定义");
+            const mockStatus = {
+              bluetooth: false,
+              notifications: true,
+              alarm: false,
+              location: true,
+            };
+            populatePermissionList(mockStatus);
+          } else {
+            const statusJson = await window.BTBridge.checkPermissions();
+            const currentStatus = JSON.parse(statusJson);
+            populatePermissionList(currentStatus);
+          }
+
+          // [新增逻辑] 处理高亮显示
+          if (highlightKey) {
+            // 等待DOM更新完成，再应用动画
+            requestAnimationFrame(() => {
+              const itemToHighlight = document.querySelector(
+                `.permission-item[data-key="${highlightKey}"]`
+              );
+              if (itemToHighlight) {
+                itemToHighlight.classList.add("highlight");
+                // 动画结束后移除类，清理DOM
+                setTimeout(() => {
+                  itemToHighlight.classList.remove("highlight");
+                }, 3000); // 3秒与CSS动画时长一致
+              }
+            });
+          }
+
+          permissionModalOverlay.classList.add("show");
+          permissionModal.classList.add("show");
+        };
+
+        const permissionModalOverlay = document.getElementById(
+          "permissionModalOverlay"
+        );
+        const permissionModal = document.getElementById("permissionModal");
+        const grantMissingPermissionsBtn = document.getElementById(
+          "grantMissingPermissionsBtn"
+        );
+        const closePermissionModalBtn = document.getElementById(
+          "closePermissionModalBtn"
+        );
+        const permissionListContainer = document.getElementById(
+          "permissionListContainer"
+        );
+
+        grantMissingPermissionsBtn.addEventListener("click", () => {
+          if (window.BTBridge && window.BTBridge.requestMissingPermissions) {
+            window.BTBridge.requestMissingPermissions();
+          }
+        });
+
+        permissionModalOverlay.addEventListener("click", hidePermissionModal);
+        closePermissionModalBtn.addEventListener("click", hidePermissionModal);
+
+        // [新增] 创建一个通用的权限请求完成回调
+        window.onPermissionRequestCompleted = () => {
+          // 再次调用 showPermissionModal 会重新检查并刷新列表，而不是关闭
+          showPermissionModal();
+        };
+
+        // [新增] 创建一个回调函数，供原生代码在应用启动时调用，以显示权限引导
+        window.showInitialPermissionDialog = showPermissionModal;
+
+        const showConfirmDialog = (message, onConfirm) => {
+          confirmMessage.textContent = message;
+          confirmActionBtn.onclick = () => {
+            onConfirm();
+            hideConfirmDialog();
+          };
+          confirmDialog.classList.add("show");
+          confirmOverlay.classList.add("show");
+        };
+
+        const hideConfirmDialog = () => {
+          confirmDialog.classList.remove("show");
+          confirmOverlay.classList.remove("show");
+        };
+        confirmCancelBtn.onclick = hideConfirmDialog;
+        confirmOverlay.addEventListener("click", hideConfirmDialog);
+
+        // --- Page Modules ---
+
+        const LogPage = (() => {
+          const logListEl = document.getElementById("logList");
+          const logTableEl = document.querySelector(".log-table");
+          const placeholderEl = document.getElementById("logPlaceholder");
+          let logs = [];
+
+          // [新增] 类型中文化映射表
+          const typeTranslations = {
+            sent: "发送",
+            received: "接收",
+            system: "系统",
+            error: "错误",
+          };
+
+          // [新增] 一个简单的HTML转义函数，防止内容注入
+          const escapeHTML = (str) => {
+            if (!str) return "";
+            return str
+              .replace(/&/g, "&amp;")
+              .replace(/</g, "&lt;")
+              .replace(/>/g, "&gt;")
+              .replace(/"/g, "&quot;")
+              .replace(/'/g, "&#039;");
+          };
+
+          const formatHex = (hex) => {
+            if (!hex) return "-";
+            return (
+              hex
+                .replace(/\s/g, "")
+                .match(/.{1,2}/g)
+                ?.join(" ")
+                .toUpperCase() || hex
+            );
+          };
+
+          // [重写] renderLog 函数以适应新逻辑
+          const renderLog = (log) => {
+            const row = document.createElement("tr");
+            row.className = "log-row";
+
+            // 1. 创建 类型/时间 单元格
+            const timeAndTypeCell = document.createElement("td");
+            timeAndTypeCell.className = "log-timestamp-type";
+            const timeString = `${log.timestamp.toLocaleTimeString(
+              "sv-SE"
+            )}.${String(log.timestamp.getMilliseconds()).padStart(3, "0")}`;
+            const typeClass = log.type.toLowerCase();
+            const typeText = typeTranslations[typeClass] || log.type;
+
+            // [修改] 交换了类型和时间的位置
+            timeAndTypeCell.innerHTML = `
+                        <span class="log-type-badge ${typeClass}">${typeText}</span>
+                        <br>
+                        ${timeString}
+                    `;
+
+            // 2. 创建 内容 单元格 (智能格式化)
+            const contentCell = document.createElement("td");
+            contentCell.className = "log-content";
+            if (log.format === "hex" && log.content) {
+              contentCell.textContent = formatHex(log.content);
+            } else {
+              contentCell.textContent = log.content || "-";
+            }
+
+            // 3. 创建 描述 单元格
+            const descriptionCell = document.createElement("td");
+            descriptionCell.className = "log-description";
+            // [修改] 直接使用 textContent 来设置描述，浏览器会自动处理特殊字符，避免了乱码问题
+            descriptionCell.textContent = log.description || "N/A";
+
+            row.appendChild(timeAndTypeCell);
+            row.appendChild(contentCell);
+            row.appendChild(descriptionCell);
+
+            logListEl.prepend(row); // 保持新日志在顶部
+          };
+
+          return {
+            init: () => {},
+            addLog: (logData) => {
+              const newLog = {
+                timestamp: new Date(),
+                ...logData,
+              };
+              logs.push(newLog);
+              if (logs.length === 1) {
+                placeholderEl.style.display = "none";
+                logTableEl.style.display = "table";
+              }
+              renderLog(newLog);
+            },
+            showClearConfirm: () => {
+              showConfirmDialog(
+                "确认要清除所有操作日志吗？此操作不可撤销。",
+                () => {
+                  logs = [];
+                  logListEl.innerHTML = "";
+                  placeholderEl.style.display = "block";
+                  logTableEl.style.display = "none";
+                  showToast("操作日志已清除");
+                }
+              );
+            },
+          };
+        })();
+
+        const RelayPage = (() => {
+          // --- 模块私有变量 (DOM 元素) ---
+          const relayList = document.getElementById("relayList");
+          const addRelayButton = document.getElementById("addRelayButton");
+          const editModal = document.getElementById("editModal");
+          const editRelayIndexInput = document.getElementById("editRelayIndex");
+          const editRelayNameInput = document.getElementById("editRelayName");
+          const editOnCommandInput = document.getElementById("editOnCommand");
+          const editOffCommandInput = document.getElementById("editOffCommand");
+          const normalActions = document.getElementById("normalActions");
+          const deleteConfirmActions = document.getElementById(
+            "deleteConfirmActions"
+          );
+          const saveEditButton = document.getElementById("saveEdit");
+          const cancelEditButton = document.getElementById("cancelEdit");
+          const deleteRelayIcon = document.getElementById("deleteRelayIcon");
+          const cancelDeleteButton = document.getElementById("cancelDelete");
+          const deleteConfirmButton = document.getElementById(
+            "deleteConfirmButton"
+          );
+
+          let relays = [];
+          let autoCycleIntervals = {};
+
+          const saveRelaysToStorage = () =>
+            localStorage.setItem("bluetoothRelays", JSON.stringify(relays));
+          const loadRelaysFromStorage = () => {
+            const storedRelays = localStorage.getItem("bluetoothRelays");
+            if (storedRelays) {
+              try {
+                const parsedRelays = JSON.parse(storedRelays);
+                return Array.isArray(parsedRelays) && parsedRelays.length > 0
+                  ? parsedRelays
+                  : getDefaultRelays();
+              } catch {
+                return getDefaultRelays();
+              }
+            }
+            return getDefaultRelays();
+          };
+          const getDefaultRelays = () => [
+            {
+              name: "继电器 1",
+              onCommand: "A00101A2",
+              offCommand: "A00100A1",
+              status: "off",
+            },
+          ];
+          const renderRelays = () => {
+            relayList.innerHTML = "";
+            relays.forEach((relay, index) => {
+              const cardElement = createRelayCard(relay, index);
+              relayList.appendChild(cardElement);
+
+              // [关键修复] 在卡片被添加到页面后，立即为其初始化数字滑块
+              createPickerWheel(`minutes-wheel-${index}`, 59);
+              createPickerWheel(`seconds-wheel-${index}`, 59);
+              initializeCardSlider(cardElement, index); // 初始化自动循环的滑块
+            });
+            updateAllTimerStatus(AppState.activeTimers, AppState.activeTimers);
+          };
+
+          const createRelayCard = (relay, index) => {
+            const card = document.createElement("div");
+            card.className = "relay-card";
+            card.dataset.index = index;
+            card.dataset.status = relay.status || "off";
+            // [新增] 根据保存的状态决定是否初始为展开
+            if (relay.isExpanded) {
+              card.classList.add("is-expanded");
+            }
+            card.innerHTML = `
+      <div class="relay-header">
+        <span class="relay-title">${relay.name}</span>
+        <div class="summary-icons">
+          <div class="status-indicator"></div>
+          <span class="material-symbols-outlined timer-indicator">timer</span>
+          <button class="edit-btn" aria-label="编辑继电器"><span class="material-symbols-outlined">edit_note</span></button>
+          <button class="expand-btn" aria-label="展开/收起"><span class="material-symbols-outlined">expand_more</span></button>
+        </div>
+      </div>
+      <div class="relay-content">
+        <div class="relay-switch ${relay.status === "on" ? "is-on" : "is-off"}">
+          <div class="slider"></div><button class="off-button">关闭</button><button class="on-button">开启</button>
+        </div>
+        <div class="card-extra-content">
+          <div>
+            <div class="auto-cycle-group">
+              <div class="auto-cycle-header">
+                <h3 class="colorful-subtitle">自动循环</h3>
+                <label class="custom-switch">
+                    <input type="checkbox" class="cycle-switch" />
+                    <span class="slider"></span>
+                </label>
+                </div>
+              <div class="auto-cycle-controls">
+        <div class="slider-wrapper">
+            <input
+                type="range"
+                id="cycleSlider-${index}"
+                class="native-slider cycle-slider"
+                min="1"
+                max="20"
+                value="1"
+                step="1">
+            <span class="slider-value-tooltip" id="tooltipValue-${index}">1</span>
+        </div>
+        <span class="cycle-label">1 次/秒</span>
+    </div>
+            </div>
+            <div class="timed-task-group">
+              <div class="timed-task-header"><h3 class="colorful-subtitle">定时任务</h3></div>
+              <div class="timer-mode-switch mode-countdown">
+                  <div class="slider"></div><button data-type="countdown">倒计时</button><button data-type="scheduled">定时预约</button>
+              </div>
+              <div class="timer-input-area">
+                  <div class="countdown-section">
+                      <div class="time-picker-container">
+                          <div class="picker-wheel" id="minutes-wheel-${index}"></div><span class="picker-label">分</span>
+                          <div class="picker-wheel" id="seconds-wheel-${index}"></div><span class="picker-label">秒</span>
+                          <div class="time-picker-overlay"></div>
+                      </div>
+                  </div>
+                  <div class="scheduled-section" style="display: none;">
+                       <input type="time" class="scheduled-input" style="width: 100%; margin-bottom: 16px; border: 1px solid var(--color-outline); padding: 8px; border-radius: 8px;">
+                  </div>
+              </div>
+              <div class="timer-action-area">
+                  <div class="timer-action-prompt">到达设定时间后:</div>
+                  <label class="action-switch-label">
+                      关
+                      <label class="custom-switch">
+                          <input type="checkbox" class="timer-action-switch" />
+                          <span class="slider"></span>
+                      </label>
+                      开
+                  </label>
+                  </div>
+              <div class="timer-controls"><button class="custom-filled-button set-timer-btn">设置任务</button></div>
+              <div class="timer-status-list"></div>
+            </div>
+          </div>
+        </div>
+      </div>`;
+            return card;
+          };
+          // ==========================================================
+          // === [最终修复] 使用这个完整的函数替换旧的 createPickerWheel 函数 ===
+          // ==========================================================
+          function createPickerWheel(containerId, max) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            container.innerHTML = ""; // 清空容器
+
+            const list = document.createElement("ul");
+            list.className = "picker-list";
+
+            // --- 常量和变量定义 ---
+            const itemHeight = 40;
+            const containerHeight = 120;
+            const centerOffset = containerHeight / 2 - itemHeight / 2;
+            const friction = 0.95; // 摩擦力，决定惯性滚动的衰减速度
+            const totalItemsInSet = max + 1;
+
+            let startY = 0,
+              currentY = 0,
+              lastY = 0,
+              velocity = 0,
+              rafId;
+            let lastSnappedIndex = -1;
+
+            // --- DOM 元素创建 ---
+            // 创建三组数据以实现无限循环滚动
+            for (let k = 0; k < 3; k++) {
+              for (let i = 0; i <= max; i++) {
+                const item = document.createElement("li");
+                item.className = "picker-item";
+                item.textContent = i.toString().padStart(2, "0");
+                list.appendChild(item);
+              }
+            }
+            container.appendChild(list);
+
+            // --- 核心函数 ---
+            const updatePosition = (y) => {
+              currentY = y;
+              list.style.transform = `translateY(${currentY}px)`;
+            };
+
+            const snap = () => {
+              let targetIndex = Math.round(
+                -(currentY - centerOffset) / itemHeight
+              );
+              const value = targetIndex % totalItemsInSet;
+              const teleportIndex = value + totalItemsInSet; // 定位到中间那组数据，避免循环边界问题
+              currentY = -teleportIndex * itemHeight + centerOffset;
+
+              // 添加带有缓动效果的 transition
+              list.style.transition = "transform 0.2s var(--anim-curve)";
+              updatePosition(currentY);
+
+              // 更新最终选定的值
+              container.dataset.value = value;
+            };
+
+            const animate = () => {
+              if (Math.abs(velocity) < 0.1) {
+                cancelAnimationFrame(rafId);
+                snap();
+                return;
+              }
+              currentY += velocity;
+              velocity *= friction;
+              updatePosition(currentY);
+
+              // ==========================================================
+              // === [新增] 在惯性滚动动画中加入震动反馈 ===
+              // ==========================================================
+              const currentSnappedIndex = Math.round(
+                -(currentY - centerOffset) / itemHeight
+              );
+              if (currentSnappedIndex !== lastSnappedIndex) {
+                triggerHapticTicks(1); // 每经过一个选项，触发一次震动
+                lastSnappedIndex = currentSnappedIndex; // 更新索引，防止重复震动
+              }
+              // ==========================================================
+
+              rafId = requestAnimationFrame(animate);
+            };
+
+            // --- 初始位置设定 ---
+            const initialIndexInList = totalItemsInSet; // 从中间组的'00'开始
+            const initialY = -initialIndexInList * itemHeight + centerOffset;
+            updatePosition(initialY);
+            lastY = initialY;
+            container.dataset.value = 0;
+
+            // --- 事件监听器 ---
+            container.addEventListener(
+              "touchstart",
+              (e) => {
+                cancelAnimationFrame(rafId);
+                startY = e.touches[0].clientY;
+                lastY = currentY;
+                velocity = 0;
+                list.style.transition = "none"; // 拖动时移除 transition，确保跟手
+                lastSnappedIndex = Math.round(
+                  -(currentY - centerOffset) / itemHeight
+                );
+              },
+              { passive: false }
+            );
+
+            container.addEventListener(
+              "touchmove",
+              (e) => {
+                e.preventDefault();
+                const deltaY = e.touches[0].clientY - startY;
+                const newY = lastY + deltaY;
+
+                // [关键] 重新引入速度计算：计算的是两次 touchmove 事件之间的位移，即瞬时速度
+                velocity = newY - currentY;
+
+                // [保留] 实时更新UI位置，确保流畅跟手
+                updatePosition(newY);
+
+                const currentSnappedIndex = Math.round(
+                  -(newY - centerOffset) / itemHeight
+                );
+                if (currentSnappedIndex !== lastSnappedIndex) {
+                  triggerHapticTicks(1);
+                  lastSnappedIndex = currentSnappedIndex;
+                }
+              },
+              { passive: false }
+            );
+
+            container.addEventListener("touchend", () => {
+              // [关键] touchend 时不再计算任何东西，直接启动惯性动画
+              // animate 函数会使用在 touchmove 中最后记录的 velocity 值
+              rafId = requestAnimationFrame(animate);
+            });
+          }
+
+          function sendCommand(index, state) {
+            triggerHapticFeedback();
+            updateRelayStatusUI(index, state);
+            const relay = relays[index];
+            const command = state === "on" ? relay.onCommand : relay.offCommand;
+            LogPage.addLog({
+              type: "Sent",
+              content: command,
+              // [修改] 指定内容格式为'hex'
+              format: "hex",
+              description: `控制: ${relay.name} -> ${
+                state === "on" ? "开启" : "关闭"
+              }`,
+            });
+            BTBridge.sendData(command);
+          }
+          const updateRelayStatusUI = (index, status) => {
+            const card = document.querySelector(
+              `.relay-card[data-index="${index}"]`
+            );
+            if (card) {
+              card.dataset.status = status;
+              const switchEl = card.querySelector(".relay-switch");
+              // This check is now only for preventing updates while the switch is meant to be disabled during auto-cycle
+              if (!switchEl.classList.contains("disabled")) {
+                switchEl.classList.toggle("is-on", status === "on");
+                switchEl.classList.toggle("is-off", status === "off");
+              }
+              if (relays[index]) relays[index].status = status;
+            }
+          };
+          const openEditModal = (index) => {
+            const relay = relays[index];
+            editRelayIndexInput.value = index;
+            editRelayNameInput.value = relay.name;
+            editOnCommandInput.value = relay.onCommand;
+            editOffCommandInput.value = relay.offCommand;
+            normalActions.style.display = "flex";
+            deleteConfirmActions.style.display = "none";
+            editModal.classList.add("show");
+          };
+          const closeEditModal = () => {
+            editModal.classList.remove("show");
+          };
+          const saveEdit = () => {
+            const index = parseInt(editRelayIndexInput.value, 10);
+            const newName = editRelayNameInput.value.trim();
+            const newOnCommand = editOnCommandInput.value.trim().toUpperCase();
+            const newOffCommand = editOffCommandInput.value
+              .trim()
+              .toUpperCase();
+            if (index >= 0 && newName && newOnCommand && newOffCommand) {
+              relays[index] = {
+                ...relays[index],
+                name: newName,
+                onCommand: newOnCommand,
+                offCommand: newOffCommand,
+              };
+              saveRelaysToStorage();
+              renderRelays();
+              closeEditModal();
+              showToast("继电器已更新");
+            } else showToast("请填写所有字段");
+          };
+          const handleDeleteClick = () => {
+            const index = parseInt(editRelayIndexInput.value, 10);
+            if (index >= 0 && index < relays.length) {
+              relays.splice(index, 1);
+              saveRelaysToStorage();
+              renderRelays();
+              closeEditModal();
+              showToast("继电器已删除");
+            }
+          };
+          const startAutoCycle = (index) => {
+            stopAutoCycle(index, false);
+            const card = document.querySelector(
+              `.relay-card[data-index="${index}"]`
+            );
+            const cycleSlider = card.querySelector(".cycle-slider");
+            const relaySwitch = card.querySelector(".relay-switch");
+            const freq = cycleSlider.value;
+            const interval = 1000 / freq;
+            let isNextStateOn = relays[index].status !== "on";
+            relaySwitch.classList.add("disabled");
+            cycleSlider.disabled = true;
+            autoCycleIntervals[index] = setInterval(() => {
+              sendCommand(index, isNextStateOn ? "on" : "off");
+              isNextStateOn = !isNextStateOn;
+            }, interval);
+          };
+
+          // [FIX] Corrected stopAutoCycle to prevent UI flicker
+          const stopAutoCycle = (index, showMsg = true) => {
+            if (autoCycleIntervals[index]) {
+              clearInterval(autoCycleIntervals[index]);
+              delete autoCycleIntervals[index];
+              const card = document.querySelector(
+                `.relay-card[data-index="${index}"]`
+              );
+              if (card) {
+                const relaySwitch = card.querySelector(".relay-switch");
+                const finalStatus = relays[index].status;
+                relaySwitch.classList.toggle("is-on", finalStatus === "on");
+                relaySwitch.classList.toggle("is-off", finalStatus === "off");
+                card.querySelector(".cycle-slider").disabled = false;
+                // [修复] 使用 .checked 属性来更新UI
+                card.querySelector(".cycle-switch").checked = false;
+                relaySwitch.classList.remove("disabled");
+              }
+              if (showMsg) showToast(`继电器 ${index + 1} 自动循环已停止`);
+            }
+          };
+
+          const stopAllAutoCycles = () => {
+            Object.keys(autoCycleIntervals).forEach((index) =>
+              stopAutoCycle(parseInt(index), false)
+            );
+          };
+
+          function setTimedTask(index) {
+            BTBridge.checkExactAlarmPermission();
+            const card = document.querySelector(
+              `.relay-card[data-index="${index}"]`
+            );
+            const action = card.querySelector(".timer-action-switch").checked
+              ? "on"
+              : "off";
+            const command =
+              action === "on"
+                ? relays[index].onCommand
+                : relays[index].offCommand;
+            const taskId = `relay_${index}_${Date.now()}`;
+            let delayMs = 0;
+            let timeDescription = "";
+            const timerType = card
+              .querySelector(".timer-mode-switch")
+              .classList.contains("mode-countdown")
+              ? "countdown"
+              : "scheduled";
+            // [新增] 根据任务是“开启”还是“关闭”，决定振动类型
+            const vibrationType = action === "on" ? "triple" : "double";
+            triggerHapticFeedback(vibrationType);
+            if (timerType === "countdown") {
+              const minutes =
+                parseInt(
+                  document.getElementById(`minutes-wheel-${index}`).dataset
+                    .value,
+                  10
+                ) || 0;
+              const seconds =
+                parseInt(
+                  document.getElementById(`seconds-wheel-${index}`).dataset
+                    .value,
+                  10
+                ) || 0;
+              delayMs = (minutes * 60 + seconds) * 1000;
+              if (delayMs <= 0) {
+                showToast("请选择有效的倒计时时长");
+                return;
+              }
+              timeDescription = `${minutes}分${seconds}秒后`;
+            } else {
+              const timeStr = card.querySelector(".scheduled-input").value;
+              if (!timeStr) {
+                showToast("请选择一个有效的时间");
+                return;
+              }
+              const [hours, minutes] = timeStr.split(":");
+              const targetTime = new Date();
+              targetTime.setHours(hours, minutes, 0, 0);
+              if (targetTime <= new Date())
+                targetTime.setDate(targetTime.getDate() + 1);
+              delayMs = targetTime.getTime() - new Date().getTime();
+              timeDescription = `预约在 ${timeStr}`;
+            }
+            BTBridge.setTimer(taskId, delayMs, command);
+            showToast("定时任务已发送至后台服务");
+            // [新增] 添加设置定时任务的日志
+            LogPage.addLog({
+              type: "system",
+              content: command,
+              format: "hex",
+              description: `为"${
+                relays[index].name
+              }"设置任务: ${timeDescription}${
+                action === "on" ? "开启" : "关闭"
+              }`,
+            });
+          }
+
+          function cancelTimedTask(taskId) {
+            BTBridge.cancelTimer(taskId);
+            // [新增] 添加取消定时任务的日志
+            const task = AppState.activeTimers[taskId];
+            if (task) {
+              const relayIndex = relays.findIndex(
+                (r) =>
+                  r.onCommand === task.command || r.offCommand === task.command
+              );
+              if (relayIndex !== -1) {
+                LogPage.addLog({
+                  type: "system",
+                  content: `任务ID ${taskId.slice(-4)}`,
+                  description: `已取消"${relays[relayIndex].name}"的定时任务`,
+                });
+              }
+            }
+          }
+
+          function updateAllTimerStatus(oldTimers, newTimers) {
+            // 1. 清理旧的计时器状态
+            Object.values(AppState.countdownIntervals).forEach(clearInterval);
+            AppState.countdownIntervals = {};
+            document
+              .querySelectorAll(".timer-status-list")
+              .forEach((list) => (list.innerHTML = ""));
+            document
+              .querySelectorAll(".relay-card")
+              .forEach((card) => card.classList.remove("timer-active"));
+
+            // 2. [核心修复] 判断消失的定时器是“执行完毕”还是“被取消”
+            const newTimerIds = new Set(Object.keys(newTimers));
+            for (const oldId in oldTimers) {
+              // 如果一个旧的定时任务在新的列表里消失了...
+              if (!newTimerIds.has(oldId)) {
+                const finishedTask = oldTimers[oldId];
+                const relayIndex = relays.findIndex(
+                  (r) =>
+                    r.onCommand === finishedTask.command ||
+                    r.offCommand === finishedTask.command
+                );
+
+                if (relayIndex !== -1) {
+                  // 关键判断：仅当任务是“到点执行”而不是“提前取消”时，才更新UI
+                  // 我们通过判断当前时间是否已经超过了任务的预定触发时间来实现
+                  if (Date.now() >= finishedTask.triggerAt - 100) {
+                    // 增加0.1秒的容错
+                    const finalState =
+                      relays[relayIndex].onCommand === finishedTask.command
+                        ? "on"
+                        : "off";
+                    updateRelayStatusUI(relayIndex, finalState);
+                  }
+                }
+              }
+            }
+
+            // 3. 遍历当前所有有效的定时任务，并渲染UI
+            Object.values(newTimers).forEach((task) => {
+              const relayIndex = relays.findIndex(
+                (r) =>
+                  r.onCommand === task.command || r.offCommand === task.command
+              );
+              if (relayIndex === -1) return;
+
+              const card = document.querySelector(
+                `.relay-card[data-index="${relayIndex}"]`
+              );
+              if (!card) return;
+
+              card.classList.add("timer-active");
+
+              const statusListDiv = card.querySelector(".timer-status-list");
+              const item = document.createElement("div");
+              item.className = "timer-status-item";
+              item.dataset.taskId = task.id;
+
+              const actionText =
+                relays[relayIndex].onCommand === task.command ? "开启" : "关闭";
+              const relayName = relays[relayIndex].name;
+
+              // 用于更新倒计时文本的函数
+              const updateDisplay = () => {
+                const remainingMs = task.triggerAt - Date.now();
+                if (remainingMs < 0) {
+                  item.remove();
+                  clearInterval(AppState.countdownIntervals[task.id]);
+                  delete AppState.countdownIntervals[task.id];
+                  return;
+                }
+                const totalSeconds = Math.round(remainingMs / 1000);
+                const minutes = Math.floor(totalSeconds / 60);
+                const seconds = totalSeconds % 60;
+                const statusText = `将在 ${minutes}分${seconds
+                  .toString()
+                  .padStart(2, "0")}秒 后 ${actionText} "${relayName}"`;
+
+                const span = item.querySelector("span");
+                if (span) span.textContent = statusText;
+              };
+
+              item.innerHTML = `<span></span><button class="custom-text-button cancel-timer-btn">取消</button>`;
+              item.querySelector(".cancel-timer-btn").onclick = () =>
+                cancelTimedTask(task.id);
+              statusListDiv.appendChild(item);
+
+              // 立即更新一次，并设置每秒更新
+              updateDisplay();
+              AppState.countdownIntervals[task.id] = setInterval(
+                updateDisplay,
+                1000
+              );
+            });
+          }
+          const init = () => {
+            relays = loadRelaysFromStorage();
+            renderRelays();
+
+            // [关键修复] 使用事件委托，为所有卡片内的交互元素绑定事件
+            relayList.addEventListener("click", (e) => {
+              const card = e.target.closest(".relay-card");
+              if (!card) return;
+              const index = parseInt(card.dataset.index, 10);
+
+              // 开关按钮
+              if (e.target.closest(".on-button")) sendCommand(index, "on");
+              else if (e.target.closest(".off-button"))
+                sendCommand(index, "off");
+              // 自动循环开关
+              else if (e.target.classList.contains("cycle-switch")) {
+                triggerHapticFeedback();
+                e.target.checked ? startAutoCycle(index) : stopAutoCycle(index);
+              }
+              // 定时模式切换
+              else if (e.target.closest(".timer-mode-switch button")) {
+                const button = e.target.closest("button");
+                const timerModeSwitch = button.parentElement;
+                const type = button.dataset.type;
+                timerModeSwitch.classList.toggle(
+                  "mode-countdown",
+                  type === "countdown"
+                );
+                timerModeSwitch.classList.toggle(
+                  "mode-scheduled",
+                  type === "scheduled"
+                );
+                card.querySelector(".countdown-section").style.display =
+                  type === "countdown" ? "block" : "none";
+                card.querySelector(".scheduled-section").style.display =
+                  type === "scheduled" ? "block" : "none";
+              } else if (e.target.closest(".edit-btn")) openEditModal(index);
+              // [修复与增强] 统一处理展开/收起事件，并增加状态保存
+              else if (
+                e.target.closest(".expand-btn") ||
+                (e.target.closest(".relay-header") &&
+                  !e.target.closest(".edit-btn, .timer-indicator"))
+              ) {
+                const isNowExpanded = card.classList.toggle("is-expanded");
+                relays[index].isExpanded = isNowExpanded; // 更新数据模型的状态
+                saveRelaysToStorage(); // 立即保存到 localStorage
+              } else if (e.target.closest(".set-timer-btn"))
+                setTimedTask(index);
+            });
+
+            // [保留] 对模块外按钮和弹窗的事件绑定
+            addRelayButton.onclick = () => {
+              const relayNum = relays.length + 1;
+              const onChecksum = (0xa0 + relayNum + 1)
+                .toString(16)
+                .toUpperCase();
+              const offChecksum = (0xa0 + relayNum + 0)
+                .toString(16)
+                .toUpperCase();
+              const relayNumHex = relayNum
+                .toString(16)
+                .padStart(2, "0")
+                .toUpperCase();
+              relays.push({
+                name: `继电器 ${relayNum}`,
+                onCommand: `A0${relayNumHex}01${onChecksum}`,
+                offCommand: `A0${relayNumHex}00${offChecksum}`,
+                status: "off",
+              });
+              saveRelaysToStorage();
+              renderRelays();
+              showToast("新继电器已添加");
+            };
+            saveEditButton.onclick = saveEdit;
+            cancelEditButton.onclick = closeEditModal;
+            deleteRelayIcon.onclick = () => {
+              normalActions.style.display = "none";
+              deleteConfirmActions.style.display = "flex";
+            };
+            cancelDeleteButton.onclick = () => {
+              normalActions.style.display = "flex";
+              deleteConfirmActions.style.display = "none";
+            };
+            deleteConfirmButton.onclick = handleDeleteClick;
+            editModal.onclick = (e) => {
+              if (e.target === editModal) closeEditModal();
+            };
+          };
+          return {
+            init: init,
+            handleData: (hex) => {
+              const upperHex = hex.toUpperCase().replace(/\s/g, "");
+              for (let i = 0; i < relays.length; i++) {
+                const isMatchedOn =
+                  upperHex ===
+                  relays[i].onCommand.toUpperCase().replace(/\s/g, "");
+                const isMatchedOff =
+                  upperHex ===
+                  relays[i].offCommand.toUpperCase().replace(/\s/g, "");
+
+                if (
+                  (isMatchedOn && relays[i].status !== "on") ||
+                  (isMatchedOff && relays[i].status !== "off")
+                ) {
+                  const newState = isMatchedOn ? "on" : "off";
+                  updateRelayStatusUI(i, newState);
+                  // [新增] 添加状态自动同步的日志
+                  LogPage.addLog({
+                    type: "system",
+                    content: "-",
+                    description: `状态同步: "${relays[i].name}" -> ${
+                      newState === "on" ? "开启" : "关闭"
+                    }`,
+                  });
+                }
+              }
+            },
+            updateAllTimerStatus,
+            stopAllAutoCycles,
+          };
+        })();
+
+        const DebugPage = (() => {
+          const messageList = document.getElementById("debugMessageList");
+          const commandInput = document.getElementById("commandInput");
+          const sendButton = document.getElementById("sendButton");
+          const statsButton = document.getElementById("statsButton");
+          const panelOverlay = document.getElementById("panelOverlay");
+          const statsPanel = document.getElementById("statsPanel");
+          const autoScrollToggle = document.getElementById("autoScrollToggle");
+          const sentSuccessCountEl =
+            document.getElementById("sentSuccessCount");
+          const sentFailCountEl = document.getElementById("sentFailCount");
+          const receivedCountEl = document.getElementById("receivedCount");
+          const inputFooter = document.querySelector(
+            "#page-command-debug .input-footer"
+          );
+
+          let stats = { sentSuccess: 0, sentFail: 0, received: 0 };
+          let isAutoScrollEnabled = true;
+          // 监听虚拟视口变化，用于处理键盘升降
+          const initKeyboardWatcher = () => {
+            // 首先，动态设置消息列表的 padding-bottom，使其等于输入框的实际高度
+            const footerHeight = inputFooter.offsetHeight;
+            messageList.style.paddingBottom = `${footerHeight}px`;
+
+            // 检查浏览器是否支持 visualViewport API
+            if (window.visualViewport) {
+              window.visualViewport.addEventListener("resize", () => {
+                // 键盘高度 = 窗口总高度 - 可见视口高度
+                const keyboardHeight =
+                  window.innerHeight - window.visualViewport.height;
+                console.log(
+                  `[DEBUG] Viewport Resized! New height: ${window.visualViewport.height}`
+                );
+
+                // 使用 transform 将输入框向上平移键盘的高度
+                // 当键盘收起时，keyboardHeight为0，输入框回到原位
+                inputFooter.style.transform = `translateY(-${keyboardHeight}px)`;
+              });
+            }
+          };
+
+          const togglePanel = (show) => {
+            panelOverlay.classList.toggle("show", show);
+            statsPanel.classList.toggle("show", show);
+          };
+          const updateStatsDisplay = () => {
+            sentSuccessCountEl.textContent = stats.sentSuccess;
+            sentFailCountEl.textContent = stats.sentFail;
+            receivedCountEl.textContent = stats.received;
+          };
+          const hexToString = (hex) => {
+            let str = "";
+            const cleanHex = hex.replace(/\s/g, "");
+            if (cleanHex.length % 2 !== 0) {
+              console.error("Invalid HEX string:", hex);
+              return `[无效16进制: ${hex}]`;
+            }
+            try {
+              for (let i = 0; i < cleanHex.length; i += 2) {
+                str += String.fromCharCode(parseInt(cleanHex.substr(i, 2), 16));
+              }
+              return str;
+            } catch (e) {
+              return `[转换错误: ${hex}]`;
+            }
+          };
+          const stringToHex = (str) => {
+            return str
+              .split("")
+              .map((c) => c.charCodeAt(0).toString(16).padStart(2, "0"))
+              .join("");
+          };
+
+          const addMessage = (text, type, format) => {
+            const bubble = document.createElement("div");
+            bubble.className = `message-bubble ${type}`;
+            const content = document.createElement("div");
+
+            if (format === "hex") {
+              content.textContent =
+                text
+                  .replace(/\s/g, "")
+                  .match(/.{1,2}/g)
+                  ?.join(" ")
+                  .toUpperCase() || text;
+            } else {
+              content.textContent = text;
+            }
+
+            const timestamp = document.createElement("div");
+            timestamp.className = "timestamp";
+            const now = new Date();
+            timestamp.textContent = `${String(now.getHours()).padStart(
+              2,
+              "0"
+            )}:${String(now.getMinutes()).padStart(2, "0")}:${String(
+              now.getSeconds()
+            ).padStart(2, "0")}.${String(now.getMilliseconds()).padStart(
+              3,
+              "0"
+            )}`;
+            bubble.appendChild(content);
+            bubble.appendChild(timestamp);
+
+            const wasScrolledToBottom =
+              messageList.scrollHeight - messageList.clientHeight <=
+              messageList.scrollTop + 1;
+            messageList.appendChild(bubble);
+            if (isAutoScrollEnabled && wasScrolledToBottom)
+              messageList.scrollTop = messageList.scrollHeight;
+          };
+
+          const handleSend = () => {
+            let command = commandInput.value.trim();
+            if (!command) return;
+            const sendFormat = document.querySelector(
+              'input[name="sendFormat"]:checked'
+            ).value;
+            let commandToSend = command;
+            let displayCommand = command;
+
+            if (sendFormat === "text") {
+              commandToSend = stringToHex(command);
+            } else {
+              if (!/^[0-9a-fA-F\s]*$/.test(commandToSend)) {
+                showToast("无效的hex格式");
+                return;
+              }
+            }
+
+            BTBridge.sendData(commandToSend);
+            addMessage(displayCommand, "sent", sendFormat);
+            // [修改] 增加更详细的描述并传递格式
+            LogPage.addLog({
+              type: "Sent",
+              content: commandToSend,
+              description: `调试发送 (${sendFormat.toUpperCase()})`,
+              format: "hex",
+            });
+
+            stats.sentSuccess++;
+            updateStatsDisplay();
+            commandInput.value = "";
+          };
+          return {
+            init: () => {
+              sendButton.addEventListener("click", handleSend);
+              commandInput.addEventListener("keydown", (e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleSend();
+                }
+              });
+              statsButton.addEventListener("click", () => togglePanel(true));
+              panelOverlay.addEventListener("click", () => togglePanel(false));
+              autoScrollToggle.addEventListener("change", (e) => {
+                isAutoScrollEnabled = e.target.checked;
+              });
+              initKeyboardWatcher();
+            },
+            handleData: (hexData) => {
+              const receiveFormat = document.querySelector(
+                'input[name="receiveFormat"]:checked'
+              ).value;
+              let displayData = hexData;
+              if (receiveFormat === "text") {
+                displayData = hexToString(hexData);
+              }
+              addMessage(displayData, "received", receiveFormat);
+              stats.received++;
+              updateStatsDisplay();
+            },
+            showClearConfirm: () => {
+              showConfirmDialog(
+                "确认要清除所有调试日志和统计数据吗？此操作不可撤销。",
+                () => {
+                  messageList.innerHTML = "";
+                  stats = { sentSuccess: 0, sentFail: 0, received: 0 };
+                  updateStatsDisplay();
+                  showToast("调试日志和统计已清除");
+                }
+              );
+            },
+          };
+        })();
+
+        const setupPaymentModal = () => {
+          const wxRadio = document.getElementById("wx-radio");
+          const zfbRadio = document.getElementById("zfb-radio");
+          const wxImage = document.getElementById("wx-qr");
+          const zfbImage = document.getElementById("zfb-qr");
+
+          const updateQRVisibility = () => {
+            // 根据哪个单选框被选中，来决定显示哪张图片
+            wxImage.style.display = wxRadio.checked ? "block" : "none";
+            zfbImage.style.display = zfbRadio.checked ? "block" : "none";
+          };
+
+          // 为两个单选框添加事件监听，当选择变化时，更新图片可见性
+          wxRadio.addEventListener("change", updateQRVisibility);
+          zfbRadio.addEventListener("change", updateQRVisibility);
+
+          // 初始化时立即执行一次，以保证默认选中的微信二维码能显示出来
+          updateQRVisibility();
+        };
+
+        // [新增] 用于接收原生扫描结果的回调接口
+        window.onDiscoveryStarted = () => ScanDialog.onScanStarted();
+        window.onDeviceFound = (name, address, type) =>
+          ScanDialog.onDeviceFound(name, address, type);
+        window.onDiscoveryFinished = () => ScanDialog.onScanFinished();
+
+        // [新增] 扫描弹窗模块
+        const ScanDialog = (() => {
+          const scanDialog = document.getElementById("scanDialog");
+          const scanAnimationBar =
+            scanDialog.querySelector(".scan-animation-bar");
+          const closeScanDialogBtn =
+            document.getElementById("closeScanDialogBtn");
+          const rescanBtn = document.getElementById("rescanBtn");
+          const deviceScanList = document.getElementById("deviceScanList");
+          const disconnectDialogBtn = document.getElementById(
+            "disconnectDialogBtn"
+          );
+          const autoConnectToggle =
+            document.getElementById("autoConnectToggle");
+
+          const RECENT_DEVICES_KEY = "bt_recent_devices";
+          let isScanning = false;
+
+          let renderedDevices = new Set();
+
+          const animateItemIn = (element, duration = 700) => {
+            const start = performance.now();
+            const ease = (t) => 1 - Math.pow(1 - t, 3);
+            const tick = (now) => {
+              const elapsed = now - start;
+              const progress = Math.min(elapsed / duration, 1);
+              const easedProgress = ease(progress);
+              const opacity = easedProgress;
+              const translateY = 30 * (1 - easedProgress);
+              const blur = 8 * (1 - easedProgress);
+              element.style.opacity = opacity;
+              element.style.transform = `translateY(${translateY}px)`;
+              element.style.webkitTransform = `translateY(${translateY}px)`;
+              element.style.filter = `blur(${blur}px)`;
+              element.style.webkitFilter = `blur(${blur}px)`;
+              if (progress < 1) {
+                requestAnimationFrame(tick);
+              } else {
+                element.style.transform = "";
+                element.style.webkitTransform = "";
+                element.style.filter = "";
+                element.style.webkitFilter = "";
+              }
+            };
+            requestAnimationFrame(tick);
+          };
+
+          // [移植代码] 新增：加载连接历史的函数
+          const loadConnectionHistory = () => {
+            const history = localStorage.getItem(RECENT_DEVICES_KEY);
+            return history ? JSON.parse(history) : [];
+          };
+
+          // [移植代码] 新增：更新连接历史的函数
+          const updateConnectionHistory = (newAddress) => {
+            let history = loadConnectionHistory();
+            history = history.filter((address) => address !== newAddress);
+            history.unshift(newAddress);
+            const updatedHistory = history.slice(0, 3);
+            localStorage.setItem(
+              RECENT_DEVICES_KEY,
+              JSON.stringify(updatedHistory)
+            );
+            LogPage.addLog({
+              type: "system",
+              content: `地址 ${newAddress}`,
+              description: "更新最近连接历史",
+            });
+          };
+
+          const setScanVisualState = (scanning) => {
+            isScanning = scanning;
+            scanAnimationBar.classList.toggle("is-scanning", scanning);
+            rescanBtn.innerHTML = scanning ? "正在扫描..." : "重新扫描";
+            rescanBtn.disabled = scanning;
+          };
+
+          const syncAutoConnectToggle = () => {
+            if (!window.BTBridge || !window.BTBridge.getAutoConnectEnabled) {
+              autoConnectToggle.checked = false;
+              return;
+            }
+            autoConnectToggle.checked = !!window.BTBridge.getAutoConnectEnabled();
+          };
+
+          const show = () => {
+            scanDialog.classList.add("show");
+            syncAutoConnectToggle();
+            if (window.BTBridge) BTBridge.startScan();
+          };
+
+          const hide = () => {
+            if (window.BTBridge) BTBridge.stopScan();
+            setScanVisualState(false);
+            scanDialog.classList.remove("show");
+          };
+
+          const getIconForDeviceType = (deviceClass) => {
+            switch (deviceClass) {
+              case 1028:
+              case 1032:
+              case 1056:
+                return "headset";
+              case 1040:
+              case 1044:
+              case 1048:
+              case 1064:
+                return "speaker";
+              case 260:
+              case 264:
+              case 268:
+                return "computer";
+              case 512:
+              case 516:
+              case 520:
+              case 524:
+              case 528:
+              case 532:
+                return "phone_iphone";
+              case 1344:
+                return "stadia_controller";
+              case 1280:
+                return "keyboard";
+              default:
+                return "bluetooth";
+            }
+          };
+
+          const createDeviceItem = (device, isRecent, isConnected) => {
+            const listItem = document.createElement("li");
+            listItem.className = "device-item"; // [修复] 使用正确的 CSS 类名 'device-item'
+            // [修复] 删除了会导致脚本崩溃的错误代码 listItem.dataset.key = p.key;
+            listItem.dataset.address = device.address;
+
+            let badgeHTML = "";
+            if (isConnected) {
+              listItem.classList.add("is-connected");
+              badgeHTML =
+                '<span class="device-status-badge connected">已连接</span>';
+            } else if (isRecent) {
+              // [移植UI] 为最近连接设备添加特殊class和徽章
+              // 为了视觉统一，我们给所有最近设备使用同一种高亮
+              const recentDevices = loadConnectionHistory();
+              const recentIndex = recentDevices.indexOf(device.address);
+              if (recentIndex !== -1) {
+                listItem.classList.add(`recent-device-${recentIndex}`);
+              }
+              badgeHTML =
+                '<span class="device-status-badge recent">最近连接</span>';
+            }
+
+            const iconName = getIconForDeviceType(device.type || 0);
+
+            listItem.innerHTML = `
+            <div class="device-icon" style="flex-shrink: 0;"> <span class="material-symbols-outlined">${iconName}</span>
+            </div>
+            <div class="device-info">
+                <span class="device-name">${device.name || "未知设备"}</span>
+                <span class="device-address">${device.address}</span>
+            </div>
+            ${badgeHTML}
+        `;
+
+            if (!isConnected) {
+              listItem.addEventListener("click", () => {
+                updateConnectionHistory(device.address);
+                if (window.BTBridge) BTBridge.connect(device.address);
+                hide();
+              });
+            }
+            return listItem;
+          };
+
+          // [修改] 增强 renderInitialList 函数以显示“最近连接”
+          const renderInitialList = () => {
+            deviceScanList.innerHTML = "";
+            renderedDevices.clear();
+
+            const history = loadConnectionHistory();
+            const connectedDeviceAddress = AppState.isBtConnected
+              ? AppState.connectedDeviceAddress
+              : null;
+
+            let devicesToShow = [];
+
+            // 1. 优先添加当前已连接的设备
+            if (connectedDeviceAddress) {
+              devicesToShow.push({
+                name: AppState.connectedDeviceName,
+                address: connectedDeviceAddress,
+                type: 0,
+                isConnected: true,
+                isRecent: false,
+              });
+              renderedDevices.add(connectedDeviceAddress);
+            }
+
+            // 2. 接着添加最近连接的设备（排除已添加的当前连接设备）
+            history.forEach((address) => {
+              if (!renderedDevices.has(address)) {
+                devicesToShow.push({
+                  name: "未知设备", // 名字未知，仅有地址
+                  address: address,
+                  type: 0,
+                  isConnected: false,
+                  isRecent: true,
+                });
+                renderedDevices.add(address);
+              }
+            });
+
+            // 3. 渲染这些预置设备
+            devicesToShow.forEach((deviceData) => {
+              const item = createDeviceItem(
+                deviceData,
+                deviceData.isRecent,
+                deviceData.isConnected
+              );
+              item.style.opacity = 1; // 直接显示，不播放动画
+              deviceScanList.appendChild(item);
+            });
+          };
+
+          const disconnect = () => {
+            if (window.BTBridge) BTBridge.disconnect();
+            hide();
+          };
+
+          return {
+            init: () => {
+              syncAutoConnectToggle();
+              closeScanDialogBtn.addEventListener("click", hide);
+              disconnectDialogBtn.addEventListener("click", disconnect);
+              autoConnectToggle.addEventListener("change", () => {
+                if (window.BTBridge && window.BTBridge.setAutoConnectEnabled) {
+                  window.BTBridge.setAutoConnectEnabled(
+                    autoConnectToggle.checked
+                  );
+                }
+              });
+              rescanBtn.addEventListener("click", () => {
+                if (window.BTBridge) BTBridge.startScan();
+              });
+              scanDialog.addEventListener("click", (event) => {
+                if (event.target === scanDialog) hide();
+              });
+            },
+            hide,
+            show,
+            // [修改] 暴露 updateConnectionHistory 接口
+            updateConnectionHistory,
+            onScanStarted: () => {
+              setScanVisualState(true);
+              disconnectDialogBtn.style.visibility = AppState.isBtConnected
+                ? "visible"
+                : "hidden";
+              renderInitialList();
+              if (deviceScanList.childElementCount === 0) {
+                deviceScanList.innerHTML =
+                  '<li class="list-placeholder" style="padding: 16px; text-align: center; color: var(--color-on-surface-variant);">正在扫描附近的设备...</li>';
+              }
+            },
+            onDeviceFound: (name, address, type) => {
+              // 检查最近设备列表里是否已有此设备，如有则更新名字
+              const existingItem = deviceScanList.querySelector(
+                `.device-item[data-address="${address}"]`
+              );
+              if (existingItem) {
+                const nameEl = existingItem.querySelector(".device-name");
+                if (nameEl && nameEl.textContent === "未知设备") {
+                  nameEl.textContent = name;
+                }
+                return; // 不重复添加
+              }
+              if (renderedDevices.has(address)) {
+                return;
+              }
+
+              const placeholder =
+                deviceScanList.querySelector(".list-placeholder");
+              if (placeholder) placeholder.remove();
+
+              renderedDevices.add(address);
+              const deviceData = { name, address, type };
+              const isRecent = loadConnectionHistory().includes(address);
+              const item = createDeviceItem(deviceData, isRecent, false);
+              deviceScanList.appendChild(item);
+              animateItemIn(item);
+            },
+            onScanFinished: () => {
+              setScanVisualState(false);
+              const scanningPlaceholder =
+                deviceScanList.querySelector(".list-placeholder");
+              if (scanningPlaceholder) {
+                scanningPlaceholder.remove();
+              }
+              if (deviceScanList.childElementCount === 0) {
+                deviceScanList.innerHTML =
+                  '<li class="list-placeholder" style="padding: 16px; text-align: center; color: var(--color-on-surface-variant);">未发现任何设备。</li>';
+              }
+            },
+          };
+        })();
+
+        // [最终修正] onConnectionStateChange 函数
+        // 这个版本不再负责更新历史记录，只专注于更新App的连接状态和UI显示
+        window.onConnectionStateChange = (state, deviceName, deviceAddress) => {
+          const STATE_DISCONNECTED = 0;
+          const STATE_CONNECTING = 1;
+          const STATE_CONNECTED = 2;
+
+          const wasConnected = AppState.isBtConnected;
+          AppState.isBtConnected = state === STATE_CONNECTED;
+
+          if (AppState.isBtConnected) {
+            AppState.connectedDeviceName = deviceName;
+            AppState.connectedDeviceAddress = deviceAddress;
+          } else {
+            AppState.connectedDeviceName = null;
+            AppState.connectedDeviceAddress = null;
+          }
+
+          let statusText, dotClass;
+
+          switch (state) {
+            case STATE_CONNECTED:
+              statusText = `已连接到 ${deviceName}`;
+              dotClass = "connected";
+              showToast("蓝牙连接成功！");
+              break;
+            case STATE_CONNECTING:
+              statusText = "正在连接...";
+              dotClass = "disconnected"; // 连接中状态仍显示未连接
+              break;
+            case STATE_DISCONNECTED:
+            default:
+              statusText = "未连接";
+              dotClass = "disconnected";
+              if (wasConnected) {
+                showToast("蓝牙已断开");
+              }
+              break;
+          }
+
+          globalBtStateText.textContent = statusText;
+          globalBtStateDot.className = `status-dot ${dotClass}`;
+
+          LogPage.addLog({
+            type: "system",
+            content: statusText,
+            description: `设备: ${deviceName || "N/A"}`,
+          });
+          if (!AppState.isBtConnected) RelayPage.stopAllAutoCycles();
+        };
+
+        // --- App Initialization ---
+        const initializeApp = () => {
+          // 替换为这段全新的代码【开始】
+          // --- About Page Dynamic Effects ---
+          const aboutPageContainer = document.getElementById("page-about");
+          if (aboutPageContainer) {
+            // 1. 滚动触发卡片浮现动画 (已正确限定)
+            const revealCards =
+              aboutPageContainer.querySelectorAll(".content-card");
+            const observer = new IntersectionObserver(
+              (entries) => {
+                entries.forEach((entry) => {
+                  if (entry.isIntersecting) {
+                    entry.target.classList.add("is-visible");
+                  }
+                });
+              },
+              {
+                threshold: 0.1,
+                root: aboutPageContainer, // 关键：指定滚动的根元素是“关于”页面本身
+              }
+            );
+            revealCards.forEach((card) => observer.observe(card));
+
+            // 2. 卡片光晕效果 (已正确限定)
+            const interactiveCards =
+              aboutPageContainer.querySelectorAll(".content-card");
+            interactiveCards.forEach((card) => {
+              card.addEventListener("mousemove", (e) => {
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                card.style.setProperty(
+                  "--mouse-x",
+                  `${(x / rect.width) * 100}%`
+                );
+                card.style.setProperty(
+                  "--mouse-y",
+                  `${(y / rect.height) * 100}%`
+                );
+              });
+            });
+
+            // 3. 滚动时模糊并淡出固定的页头 (已正确限定)
+            const headerCard = aboutPageContainer.querySelector("#card");
+            aboutPageContainer.addEventListener(
+              "scroll",
+              function () {
+                // 关键：监听“关于”页面的滚动
+                const scrollY = this.scrollTop;
+                const maxScroll = 350; // 调整此值可改变模糊速度
+                const maxBlur = 16;
+                const scrollFraction = Math.min(scrollY / maxScroll, 1);
+                const blurValue = scrollFraction * maxBlur;
+                const opacityValue = 1 - scrollFraction * 0.5;
+
+                window.requestAnimationFrame(() => {
+                  if (headerCard) {
+                    headerCard.style.setProperty(
+                      "--header-blur",
+                      `${blurValue}px`
+                    );
+                    headerCard.style.setProperty(
+                      "--header-opacity",
+                      opacityValue
+                    );
+                  }
+                });
+              },
+              { passive: true }
+            );
+          }
+          // 替换为这段全新的代码【结束】
+          LogPage.init();
+          RelayPage.init();
+          DebugPage.init();
+          setupPaymentModal();
+          ScanDialog.init();
+
+          bluetoothFab.onclick = async () => {
+            if (!window.BTBridge || !window.BTBridge.checkPermissions) {
+              showToast("权限接口未定义");
+              ScanDialog.show(); // 模拟环境下直接显示
+              return;
+            }
+            const statusJson = await window.BTBridge.checkPermissions();
+            const statuses = JSON.parse(statusJson);
+
+            // 检查“必要”权限 (optional: false) 是否都已授予
+            const hasMissingRequired = permissionsData.some(
+              (p) => !p.optional && !statuses[p.key]
+            );
+
+            if (hasMissingRequired) {
+              // [修改] 缺少必要权限时，高亮显示最相关的蓝牙权限
+              showPermissionModal("bluetooth");
+            } else {
+              ScanDialog.show();
+            }
+          };
+
+          switchPage("page-relay-control");
+        };
+
+        // 所有JS模块初始化完毕后，通知原生代码“我已准备就绪”
+        if (
+          window.BTBridge &&
+          typeof window.BTBridge.onJsReady === "function"
+        ) {
+          BTBridge.onJsReady();
+        }
+
+        initializeApp();
+      });
+    </script>
+  </body>
+</html>
