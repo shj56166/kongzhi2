@@ -6,7 +6,7 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
-    <title>蓝牙多功能控制器</title>
+    <title>SPP蓝牙定时控制</title>
 
     <style>
       /* --- 本地字体加载规则 开始 --- */
@@ -2502,7 +2502,7 @@
     <div class="app-container">
       <header class="app-header">
         <div class="header-title-group">
-          <span class="title" id="appTitle">SPP蓝牙自动化控制</span>
+          <span class="title" id="appTitle">SPP蓝牙定时控制</span>
           <div class="status-area">
             <div id="globalBtStateDot" class="status-dot disconnected"></div>
             <span id="globalBtStateText">未连接</span>
@@ -2573,8 +2573,8 @@
               <div class="interactive-header-card">
                 <div id="card">
                   <div id="prompt">
-                    <h1 class="main-title">SPP蓝牙自动化控制</h1>
-                    <p class="version-info">版本: 2.2.0</p>
+                    <h1 class="main-title">SPP蓝牙定时控制</h1>
+                    <p class="version-info">版本: 2.3.0</p>
                   </div>
                 </div>
               </div>
@@ -2776,7 +2776,7 @@
         <div
           class="nav-item active"
           data-page="page-relay-control"
-          data-title="SPP蓝牙自动化控制"
+          data-title="SPP蓝牙定时控制"
         >
           <span class="material-symbols-outlined">toggle_on</span>
           <span class="nav-label">控制</span>
@@ -4447,24 +4447,18 @@
           let isAutoScrollEnabled = true;
           // 监听虚拟视口变化，用于处理键盘升降
           const initKeyboardWatcher = () => {
-            // 首先，动态设置消息列表的 padding-bottom，使其等于输入框的实际高度
-            const footerHeight = inputFooter.offsetHeight;
-            messageList.style.paddingBottom = `${footerHeight}px`;
+            const syncFooterLayout = () => {
+              inputFooter.style.transform = "none";
+              messageList.style.paddingBottom = `${inputFooter.offsetHeight}px`;
+            };
 
-            // 检查浏览器是否支持 visualViewport API
+            syncFooterLayout();
+
             if (window.visualViewport) {
-              window.visualViewport.addEventListener("resize", () => {
-                // 键盘高度 = 窗口总高度 - 可见视口高度
-                const keyboardHeight =
-                  window.innerHeight - window.visualViewport.height;
-                console.log(
-                  `[DEBUG] Viewport Resized! New height: ${window.visualViewport.height}`
-                );
-
-                // 使用 transform 将输入框向上平移键盘的高度
-                // 当键盘收起时，keyboardHeight为0，输入框回到原位
-                inputFooter.style.transform = `translateY(-${keyboardHeight}px)`;
-              });
+              window.visualViewport.addEventListener(
+                "resize",
+                syncFooterLayout
+              );
             }
           };
 
